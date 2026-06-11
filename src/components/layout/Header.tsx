@@ -10,6 +10,7 @@ const navLinks = [
   { href: '/layanan', label: 'Layanan' },
   { href: '/tim-dokter', label: 'Tim Dokter' },
   { href: '/blog', label: 'Blog' },
+  { href: '/testimoni', label: 'Testimoni' },
   { href: '/tentang-kami', label: 'Tentang' },
   { href: '/galeri', label: 'Galeri' },
   { href: '/kontak', label: 'Kontak' },
