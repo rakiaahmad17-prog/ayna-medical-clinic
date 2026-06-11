@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, X, Phone } from 'lucide-react'
@@ -17,8 +18,14 @@ const navLinks = [
 ]
 
 export default function Header() {
+  const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Hide header on dashboard routes
+  if (pathname?.startsWith('/dashboard')) {
+    return null
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -54,7 +61,6 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
@@ -65,6 +71,12 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              href="/dashboard/login"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-primary-600 hover:bg-primary-50 border border-primary-300 bg-primary-50/50"
+            >
+              Admin
+            </Link>
           </nav>
 
           {/* CTA & Contact */}
@@ -110,13 +122,22 @@ export default function Header() {
                 <Phone size={14} className="text-primary-500" />
                 <span>+62 853-4374-7010</span>
               </div>
-              <Link
-                href="/booking"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="btn-primary w-full text-center"
-              >
-                Buat Janji
-              </Link>
+              <div className="flex gap-2">
+                <Link
+                  href="/booking"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="btn-primary flex-1 text-center"
+                >
+                  Buat Janji
+                </Link>
+                <Link
+                  href="/dashboard/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="btn-outline flex-1 text-center"
+                >
+                  Admin
+                </Link>
+              </div>
             </div>
           </nav>
         </div>

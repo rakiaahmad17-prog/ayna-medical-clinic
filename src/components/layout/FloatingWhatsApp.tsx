@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { X } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 
 const WhatsAppNumber = '6285343747010' // drg. Siti Hardianti
 
@@ -14,8 +15,14 @@ const quickMessages = [
 ]
 
 export default function FloatingWhatsApp() {
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+
+  // Hide on dashboard routes
+  if (pathname?.startsWith('/dashboard')) {
+    return null
+  }
 
   useEffect(() => {
     const handleScroll = () => {

@@ -106,12 +106,6 @@ export default function DashboardLoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-xs text-slate-400">
-              Default password: <code className="bg-surface-100 px-2 py-1 rounded">ayna2026</code>
-            </p>
-          </div>
         </div>
 
         {/* Back to website */}
