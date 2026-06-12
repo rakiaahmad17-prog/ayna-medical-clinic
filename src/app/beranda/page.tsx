@@ -2,48 +2,11 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, Star, Shield, Clock, Award, ChevronRight, Quote, Sparkles } from 'lucide-react'
 import { services } from '@/data/services'
 import { testimonials } from '@/data/testimonials'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-          observer.unobserve(entry.target)
-        }
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-700 ease-out ${className}`}
-      style={{
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? 'translateY(0)' : 'translateY(40px)',
-        transitionDelay: `${delay}ms`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const whyChooseUs = [
   {
@@ -67,6 +30,17 @@ const whyChooseUs = [
     desc: '4.9/5 dari 500+ ulasan pasien puas di Google',
   },
 ]
+
+const iconMap: Record<string, React.ReactNode> = {
+  'sparkles': <Sparkles className="w-6 h-6" />,
+  'shield-check': <Shield className="w-6 h-6" />,
+  'align-center': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>,
+  'sun': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>,
+  'scissors': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12" /></svg>,
+  'heart': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>,
+  'star': <Star className="w-6 h-6" />,
+  'zap': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
+}
 
 export default function BerandaPage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0)
@@ -193,7 +167,7 @@ export default function BerandaPage() {
       {/* Services Section */}
       <section className="section-padding bg-surface-50 relative">
         <div className="section-container">
-          <RevealCard className="text-center mb-16">
+          <ScrollReveal className="text-center mb-16">
             <span className="badge badge-primary mb-4">Layanan Kami</span>
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 mb-4">
               Perawatan Gigi <span className="text-gradient">Terlengkap</span>
@@ -201,15 +175,15 @@ export default function BerandaPage() {
             <p className="text-slate-600 max-w-2xl mx-auto text-lg">
               Dari scaling harian hingga smile makeover lengkap, tim dokter spesialis kami siap memberikan yang terbaik untuk senyum Anda.
             </p>
-          </RevealCard>
+          </ScrollReveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.slice(0, 8).map((service, i) => (
-              <RevealCard key={service.id} delay={i * 80}>
+              <ScrollReveal key={service.id} delay={i * 80}>
                 <Link href="/layanan" className="group card block h-full">
                   <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center mb-4 group-hover:bg-primary-500 transition-colors">
                     <div className="text-primary-600 group-hover:text-white transition-colors">
-                      <ServiceIcon name={service.icon} />
+                      {iconMap[service.icon] || <Sparkles className="w-6 h-6" />}
                     </div>
                   </div>
                   <h3 className="font-display font-semibold text-slate-800 mb-2 group-hover:text-primary-600 transition-colors">
@@ -223,16 +197,16 @@ export default function BerandaPage() {
                     <ChevronRight size={14} />
                   </div>
                 </Link>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
 
-          <RevealCard delay={400} className="text-center mt-12">
+          <ScrollReveal delay={400} className="text-center mt-12">
             <Link href="/layanan" className="btn-secondary inline-flex items-center gap-2">
               Lihat Semua Layanan
               <ArrowRight size={16} />
             </Link>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -241,7 +215,7 @@ export default function BerandaPage() {
         <div className="absolute inset-0 bg-mesh" />
         <div className="section-container relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <RevealCard>
+            <ScrollReveal>
               <span className="badge badge-warm mb-4">Mengapa Ayna?</span>
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
                 Percayakan Senyum Anda<br />Pada <span className="text-gradient">Ahli</span>
@@ -253,11 +227,11 @@ export default function BerandaPage() {
                 Tentang Kami
                 <ArrowRight size={16} />
               </Link>
-            </RevealCard>
+            </ScrollReveal>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {whyChooseUs.map((item, i) => (
-                <RevealCard key={item.title} delay={i * 100}>
+                <ScrollReveal key={item.title} delay={i * 100}>
                   <div className="card h-full">
                     <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 mb-4">
                       {item.icon}
@@ -265,7 +239,7 @@ export default function BerandaPage() {
                     <h3 className="font-display font-semibold text-slate-800 mb-2">{item.title}</h3>
                     <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
                   </div>
-                </RevealCard>
+                </ScrollReveal>
               ))}
             </div>
           </div>
@@ -280,7 +254,7 @@ export default function BerandaPage() {
         </div>
 
         <div className="section-container relative z-10">
-          <RevealCard className="text-center mb-16">
+          <ScrollReveal className="text-center mb-16">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/20 text-primary-300 text-sm font-medium mb-4">
               <Star size={14} className="fill-primary-400" />
               <span>Testimoni Pasien</span>
@@ -288,11 +262,11 @@ export default function BerandaPage() {
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
               Kata Mereka yang <span className="text-primary-400">Sudah Percaya</span>
             </h2>
-          </RevealCard>
+          </ScrollReveal>
 
           {/* Testimonial Slider */}
           <div className="max-w-3xl mx-auto">
-            <RevealCard>
+            <ScrollReveal>
               <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 md:p-12 border border-white/10">
                 <Quote className="w-10 h-10 text-primary-400 mb-6" />
                 <div className="transition-all duration-500">
@@ -321,7 +295,7 @@ export default function BerandaPage() {
                   </div>
                 </div>
               </div>
-            </RevealCard>
+            </ScrollReveal>
 
             {/* Dots */}
             <div className="flex justify-center gap-2 mt-8">
@@ -338,12 +312,12 @@ export default function BerandaPage() {
             </div>
           </div>
 
-          <RevealCard delay={200} className="text-center mt-12">
+          <ScrollReveal delay={200} className="text-center mt-12">
             <Link href="/testimoni" className="btn-outline border-primary-400 text-primary-400 hover:bg-primary-400 hover:text-white">
               Lihat Semua Testimoni
               <ArrowRight size={16} />
             </Link>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -355,7 +329,7 @@ export default function BerandaPage() {
         </div>
 
         <div className="section-container relative z-10 text-center">
-          <RevealCard>
+          <ScrollReveal>
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
               Siap untuk Senyum Lebih Sehat?
             </h2>
@@ -371,23 +345,9 @@ export default function BerandaPage() {
                 Hubungi Kami
               </Link>
             </div>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
     </>
   )
-}
-
-function ServiceIcon({ name }: { name: string }) {
-  const icons: Record<string, React.ReactNode> = {
-    'sparkles': <Sparkles className="w-6 h-6" />,
-    'shield-check': <Shield className="w-6 h-6" />,
-    'align-center': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>,
-    'sun': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>,
-    'scissors': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12" /></svg>,
-    'heart': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>,
-    'star': <Star className="w-6 h-6" />,
-    'zap': <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>,
-  }
-  return icons[name] || <Sparkles className="w-6 h-6" />
 }

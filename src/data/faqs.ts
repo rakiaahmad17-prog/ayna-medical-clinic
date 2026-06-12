@@ -33,7 +33,7 @@ export const faqs: FAQ[] = [
   {
     id: 'faq5',
     question: 'Apakah bisa booking janji temu via WhatsApp?',
-    answer: 'Ya! Anda bisa booking via WhatsApp di nomor +62 812-3456-7890. Cukup kirim nama, layanan yang diinginkan, dan tanggal/waktu yang preferensi. Kami akan konfirmasi ketersediaan dan mengirim detail appointment.',
+    answer: 'Ya! Anda bisa booking via WhatsApp di nomor +62 853-4374-7010 (drg. Siti Hardianti) atau +62 812-5671-8190 (drg. Fajrin Wijaya). Cukup kirim nama, layanan yang diinginkan, dan tanggal/waktu yang preferensi. Kami akan konfirmasi ketersediaan dan mengirim detail appointment.',
     category: 'Booking',
   },
   {

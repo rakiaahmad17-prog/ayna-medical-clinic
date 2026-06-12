@@ -1,34 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
-import { Calendar, Clock, User, ArrowRight, Search, Filter } from 'lucide-react'
+import { Calendar, Clock, User, ArrowRight, Search } from 'lucide-react'
 import { blogPosts } from '@/data/blog'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const categories = ['Semua', 'Perawatan', 'Anak', 'Edukasi', 'Estetika']
 
@@ -70,7 +47,7 @@ export default function BlogPage() {
       {/* Featured Post */}
       <section className="section-padding -mt-8">
         <div className="section-container">
-          <RevealCard>
+          <ScrollReveal>
             <Link href={`/blog/${featuredPost.slug}`} className="group block card overflow-hidden p-0">
               <div className="grid md:grid-cols-2 gap-0">
                 <div className="relative aspect-[4/3] md:aspect-auto">
@@ -113,7 +90,7 @@ export default function BlogPage() {
                 </div>
               </div>
             </Link>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -163,7 +140,7 @@ export default function BlogPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredPosts.map((post, i) => (
-                <RevealCard key={post.id} delay={i * 80}>
+                <ScrollReveal key={post.id} delay={i * 80}>
                   <Link href={`/blog/${post.slug}`} className="card group overflow-hidden p-0 h-full flex flex-col">
                     <div className="relative aspect-[4/3] -mx-6 -mt-6 mb-4">
                       <Image
@@ -190,7 +167,7 @@ export default function BlogPage() {
                       </div>
                     </div>
                   </Link>
-                </RevealCard>
+                </ScrollReveal>
               ))}
             </div>
           )}
@@ -200,7 +177,7 @@ export default function BlogPage() {
       {/* CTA */}
       <section className="section-padding bg-surface-50">
         <div className="section-container text-center">
-          <RevealCard>
+          <ScrollReveal>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 mb-4">
               Butuh Konsultasi Lebih Lanjut?
             </h2>
@@ -211,7 +188,7 @@ export default function BlogPage() {
               Booking Konsultasi
               <ArrowRight size={16} />
             </Link>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
     </>

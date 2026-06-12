@@ -1,34 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Clock, CheckCircle2, ArrowRight, ChevronRight } from 'lucide-react'
+import { Clock, CheckCircle2, ArrowRight } from 'lucide-react'
 import { services } from '@/data/services'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const iconMap: Record<string, React.ReactNode> = {
   'sparkles': <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" strokeLinecap="round"/></svg>,
@@ -75,7 +51,7 @@ export default function LayananPage() {
         <div className="section-container">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.map((service, i) => (
-              <RevealCard key={service.id} delay={i * 80}>
+              <ScrollReveal key={service.id} delay={i * 80}>
                 <div className="card group h-full flex flex-col">
                   {/* Image */}
                   <div className="relative -mx-6 -mt-6 mb-6 rounded-t-2xl overflow-hidden">
@@ -130,7 +106,7 @@ export default function LayananPage() {
                     </Link>
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>

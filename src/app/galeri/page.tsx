@@ -1,32 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
-import { useState, useEffect, useRef } from 'react'
 import { Camera, ImageIcon } from 'lucide-react'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const categories = ['Semua', 'Klinik', 'Perawatan', 'Before/After', 'Team']
 
@@ -129,7 +106,7 @@ export default function GaleriPage() {
       <section className="section-padding -mt-8">
         <div className="section-container">
           {/* Filter */}
-          <RevealCard>
+          <ScrollReveal>
             <div className="flex flex-wrap gap-2 mb-8">
               {categories.map((cat) => (
                 <button
@@ -145,12 +122,12 @@ export default function GaleriPage() {
                 </button>
               ))}
             </div>
-          </RevealCard>
+          </ScrollReveal>
 
           {/* Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredImages.map((img, i) => (
-              <RevealCard key={img.id} delay={i * 60}>
+              <ScrollReveal key={img.id} delay={i * 60}>
                 <div
                   onClick={() => setSelectedImage(img.src)}
                   className="group relative rounded-2xl overflow-hidden cursor-pointer bg-surface-100 aspect-[4/3]"
@@ -171,22 +148,9 @@ export default function GaleriPage() {
                     <ImageIcon size={14} className="text-slate-700" />
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
-
-          {/* Placeholder notice */}
-          <RevealCard delay={200}>
-            <div className="mt-8 p-6 bg-surface-50 rounded-2xl border border-dashed border-surface-300 text-center">
-              <div className="w-12 h-12 rounded-xl bg-surface-200 flex items-center justify-center mx-auto mb-3">
-                <Camera size={20} className="text-slate-400" />
-              </div>
-              <h3 className="font-semibold text-slate-700 mb-2">Galeri Placeholder</h3>
-              <p className="text-sm text-slate-500">
-                Galeri ini menggunakan gambar placeholder. Anda dapat mengganti dengan foto asli klinik, dokter, dan hasil perawatan untuk konten yang lebih otentik.
-              </p>
-            </div>
-          </RevealCard>
         </div>
       </section>
 

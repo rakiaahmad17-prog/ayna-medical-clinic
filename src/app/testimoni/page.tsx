@@ -2,33 +2,9 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
 import { Star, Quote, ArrowRight } from 'lucide-react'
 import { testimonials } from '@/data/testimonials'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const stats = [
   { number: '500+', label: 'Pasien Puas' },
@@ -65,7 +41,7 @@ export default function TestimoniPage() {
       <section className="py-12 bg-surface-50">
         <div className="section-container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, i) => (
+            {stats.map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="font-display text-3xl sm:text-4xl font-bold text-primary-600 mb-1">{stat.number}</div>
                 <div className="text-sm text-slate-500">{stat.label}</div>
@@ -80,7 +56,7 @@ export default function TestimoniPage() {
         <div className="section-container">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {testimonials.map((t, i) => (
-              <RevealCard key={t.id} delay={i * 80}>
+              <ScrollReveal key={t.id} delay={i * 80}>
                 <div className="card h-full flex flex-col">
                   <div className="flex items-center gap-1 mb-4">
                     {[...Array(t.rating)].map((_, idx) => (
@@ -100,7 +76,7 @@ export default function TestimoniPage() {
                     <span className="ml-auto text-xs text-slate-400">{t.date}</span>
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -109,7 +85,7 @@ export default function TestimoniPage() {
       {/* CTA */}
       <section className="section-padding bg-gradient-to-br from-primary-500 to-primary-700">
         <div className="section-container text-center">
-          <RevealCard>
+          <ScrollReveal>
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">
               Bergabung dengan Pasien Puas Kami
             </h2>
@@ -120,7 +96,7 @@ export default function TestimoniPage() {
               Buat Janji Sekarang
               <ArrowRight size={16} />
             </Link>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
     </>

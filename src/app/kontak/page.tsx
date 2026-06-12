@@ -1,33 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
 import { MapPin, Phone, Mail, Clock, MessageCircle, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const contactInfo = [
   {
@@ -93,7 +69,7 @@ export default function KontakPage() {
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Contact Info */}
             <div className="space-y-6">
-              <RevealCard>
+              <ScrollReveal>
                 <div className="card">
                   <h2 className="font-display text-2xl font-bold text-slate-800 mb-6">Informasi Kontak</h2>
                   <div className="space-y-6">
@@ -112,9 +88,9 @@ export default function KontakPage() {
                     ))}
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
 
-              <RevealCard delay={100}>
+              <ScrollReveal delay={100}>
                 <div className="card bg-green-50 border border-green-100">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center">
@@ -135,15 +111,15 @@ export default function KontakPage() {
                     </a>
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             </div>
 
             {/* Map */}
-            <RevealCard delay={200}>
+            <ScrollReveal delay={200}>
               <div id="peta" className="card p-0 overflow-hidden">
                 <div className="aspect-[4/3] lg:aspect-auto lg:h-full min-h-[400px]">
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3971.1!2d119.4167!3d-5.15!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNcKwMDknMDAuMCJTIDExOcKwMjUnMDAuMCJF!5e0!3m2!1sen!2sid!4v1234567890"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3971.1!2d119.4167!3d-5.15!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNcKwMDknMDAuMCJTIDExNcKwMjUnMDAuMCJF!5e0!3m2!1sen!2sid!4v1234567890"
                     width="100%"
                     height="100%"
                     style={{ border: 0, minHeight: '400px' }}
@@ -168,7 +144,7 @@ export default function KontakPage() {
                   </a>
                 </div>
               </div>
-            </RevealCard>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -176,7 +152,7 @@ export default function KontakPage() {
       {/* Social Media */}
       <section className="section-padding bg-surface-50">
         <div className="section-container text-center">
-          <RevealCard>
+          <ScrollReveal>
             <h2 className="font-display text-2xl font-bold text-slate-800 mb-2">Ikuti Kami</h2>
             <p className="text-slate-500 mb-8">Dapatkan update dan info terbaru di Instagram kami</p>
             <div className="flex justify-center gap-4">
@@ -199,7 +175,7 @@ export default function KontakPage() {
                 <Image src="/images/wa.png" alt="WhatsApp" width={24} height={24} className="object-contain" />
               </a>
             </div>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
 

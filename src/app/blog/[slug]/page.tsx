@@ -1,28 +1,16 @@
 'use client'
 
+import { use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
 import { Calendar, Clock, User, ArrowLeft, ArrowRight } from 'lucide-react'
 import { blogPosts } from '@/data/blog'
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = blogPosts.find(p => p.slug === params.slug)
-  const otherPosts = blogPosts.filter(p => p.slug !== params.slug).slice(0, 3)
+export default function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
+  const post = blogPosts.find(p => p.slug === slug)
+  const otherPosts = blogPosts.filter(p => p.slug !== slug).slice(0, 3)
 
   if (!post) {
     return (

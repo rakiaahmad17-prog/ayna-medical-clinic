@@ -2,33 +2,9 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
 import { Calendar, Award, GraduationCap, ArrowRight, Phone } from 'lucide-react'
 import { doctors } from '@/data/doctors'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 export default function TimDokterPage() {
   return (
@@ -60,7 +36,7 @@ export default function TimDokterPage() {
         <div className="section-container">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {doctors.map((doctor, i) => (
-              <RevealCard key={doctor.id} delay={i * 100}>
+              <ScrollReveal key={doctor.id} delay={i * 100}>
                 <div className="card group flex flex-col sm:flex-row gap-6">
                   {/* Photo */}
                   <div className="sm:w-40 sm:flex-shrink-0">
@@ -113,7 +89,7 @@ export default function TimDokterPage() {
                     </a>
                   </div>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -122,18 +98,18 @@ export default function TimDokterPage() {
       {/* Values */}
       <section className="section-padding bg-surface-50">
         <div className="section-container">
-          <RevealCard className="text-center mb-12">
+          <ScrollReveal className="text-center mb-12">
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
               Nilai-Nilai Kami
             </h2>
-          </RevealCard>
+          </ScrollReveal>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
               { title: 'Empati', desc: 'Kami memahami bahwa setiap pasien punya kekhawatiran. Pendekatan kami dimulai dari mendengarkan.' },
               { title: 'Kejujuran', desc: 'Tidak ada klaim berlebihan. Kami jelaskan kondisi gigi Anda apa adanya dan rekomendasi yang transparan.' },
               { title: 'Keunggulan', desc: 'Terus update dengan teknologi dan teknik terbaru untuk hasil yang optimal.' },
             ].map((value, i) => (
-              <RevealCard key={value.title} delay={i * 100}>
+              <ScrollReveal key={value.title} delay={i * 100}>
                 <div className="card text-center">
                   <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center mx-auto mb-4">
                     <span className="font-display text-2xl font-bold text-primary-600">{i + 1}</span>
@@ -141,7 +117,7 @@ export default function TimDokterPage() {
                   <h3 className="font-display text-xl font-bold text-slate-800 mb-3">{value.title}</h3>
                   <p className="text-slate-500 text-sm leading-relaxed">{value.desc}</p>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>

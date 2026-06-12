@@ -1,33 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { ChevronDown, Search, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { faqs } from '@/data/faqs'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const categories = ['Semua', 'Perawatan', 'Orthodonti', 'Pemutihan', 'Anak', 'Booking', 'Pembayaran']
 
@@ -77,7 +54,7 @@ export default function FAQPage() {
       <section className="section-padding -mt-8">
         <div className="section-container max-w-4xl">
           {/* Search */}
-          <RevealCard>
+          <ScrollReveal>
             <div className="relative mb-8">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -88,10 +65,10 @@ export default function FAQPage() {
                 className="input-field pl-12 py-4 text-base"
               />
             </div>
-          </RevealCard>
+          </ScrollReveal>
 
           {/* Category Filter */}
-          <RevealCard delay={100}>
+          <ScrollReveal delay={100}>
             <div className="flex flex-wrap gap-2 mb-8">
               {categories.map((cat) => (
                 <button
@@ -107,7 +84,7 @@ export default function FAQPage() {
                 </button>
               ))}
             </div>
-          </RevealCard>
+          </ScrollReveal>
 
           {/* FAQ List */}
           <div className="space-y-3">
@@ -120,7 +97,7 @@ export default function FAQPage() {
               </div>
             ) : (
               filteredFaqs.map((faq, i) => (
-                <RevealCard key={faq.id} delay={i * 50}>
+                <ScrollReveal key={faq.id} delay={i * 50}>
                   <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
                     openItems.has(faq.id)
                       ? 'border-primary-300 bg-primary-50/30 shadow-soft'
@@ -151,7 +128,7 @@ export default function FAQPage() {
                       </p>
                     </div>
                   </div>
-                </RevealCard>
+                </ScrollReveal>
               ))
             )}
           </div>
@@ -161,7 +138,7 @@ export default function FAQPage() {
       {/* Still Have Questions */}
       <section className="section-padding bg-surface-50">
         <div className="section-container max-w-2xl text-center">
-          <RevealCard>
+          <ScrollReveal>
             <div className="card">
               <div className="w-16 h-16 rounded-2xl bg-primary-100 flex items-center justify-center mx-auto mb-6">
                 <MessageCircle className="w-8 h-8 text-primary-600" />
@@ -176,13 +153,13 @@ export default function FAQPage() {
                 <Link href="/booking" className="btn-primary">
                   Booking Konsultasi
                 </Link>
-                <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="btn-warm">
+                <a href="https://wa.me/6285343747010" target="_blank" rel="noopener noreferrer" className="btn-warm">
                   <MessageCircle size={16} />
                   Chat WhatsApp
                 </a>
               </div>
             </div>
-          </RevealCard>
+          </ScrollReveal>
         </div>
       </section>
     </>

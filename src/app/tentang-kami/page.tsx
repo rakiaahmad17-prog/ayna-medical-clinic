@@ -2,32 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
 import { Award, Shield, Users, Target, Eye, ArrowRight, CheckCircle2, MessageCircle } from 'lucide-react'
-
-function useScrollReveal() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.unobserve(entry.target) } },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    )
-    if (ref.current) observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, isVisible }
-}
-
-function RevealCard({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, isVisible } = useScrollReveal()
-  return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${className}`}
-      style={{ opacity: isVisible ? 1 : 0, transform: isVisible ? 'translateY(0)' : 'translateY(40px)', transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  )
-}
+import { ScrollReveal } from '@/lib/scroll-reveal'
 
 const values = [
   { icon: <Shield className="w-6 h-6" />, title: 'Keamanan & Sterilisasi', desc: 'Peralatan disterilisasi dengan standar internasional. Ruang perawatan selalu bersih dan aman.' },
@@ -72,7 +48,7 @@ export default function TentangKamiPage() {
                 <ArrowRight size={16} />
               </Link>
             </div>
-            <RevealCard delay={200}>
+            <ScrollReveal delay={200}>
               <div className="relative">
                 <div className="rounded-3xl overflow-hidden shadow-2xl">
                   <Image
@@ -84,7 +60,7 @@ export default function TentangKamiPage() {
                   />
                 </div>
               </div>
-            </RevealCard>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -93,7 +69,7 @@ export default function TentangKamiPage() {
       <section className="section-padding">
         <div className="section-container">
           <div className="grid md:grid-cols-2 gap-8">
-            <RevealCard>
+            <ScrollReveal>
               <div className="card h-full">
                 <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center mb-6">
                   <Eye className="w-7 h-7 text-primary-600" />
@@ -103,8 +79,8 @@ export default function TentangKamiPage() {
                   Menjadi klinik dokter gigi terdepan di Makassar yang dikenal karena kualitas perawatan, inovasi teknologi, dan pelayanan yang berpusat pada pasien. Kami ingin setiap pasien merasa nyaman dan percaya diri dengan senyum mereka.
                 </p>
               </div>
-            </RevealCard>
-            <RevealCard delay={100}>
+            </ScrollReveal>
+            <ScrollReveal delay={100}>
               <div className="card h-full">
                 <div className="w-14 h-14 rounded-2xl bg-warm-100 flex items-center justify-center mb-6">
                   <Target className="w-7 h-7 text-warm-600" />
@@ -119,7 +95,7 @@ export default function TentangKamiPage() {
                   ))}
                 </ul>
               </div>
-            </RevealCard>
+            </ScrollReveal>
           </div>
         </div>
       </section>
@@ -127,15 +103,15 @@ export default function TentangKamiPage() {
       {/* Values */}
       <section className="section-padding bg-surface-50">
         <div className="section-container">
-          <RevealCard className="text-center mb-12">
+          <ScrollReveal className="text-center mb-12">
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
               Nilai-Nilai Kami
             </h2>
             <p className="text-slate-600 max-w-2xl mx-auto">Empat prinsip utama yang memandu setiap layanan kami.</p>
-          </RevealCard>
+          </ScrollReveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {values.map((value, i) => (
-              <RevealCard key={value.title} delay={i * 80}>
+              <ScrollReveal key={value.title} delay={i * 80}>
                 <div className="card text-center h-full">
                   <div className="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 mx-auto mb-4">
                     {value.icon}
@@ -143,7 +119,7 @@ export default function TentangKamiPage() {
                   <h3 className="font-display font-semibold text-slate-800 mb-2">{value.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{value.desc}</p>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -152,11 +128,11 @@ export default function TentangKamiPage() {
       {/* Info */}
       <section className="section-padding">
         <div className="section-container">
-          <RevealCard className="text-center mb-12">
+          <ScrollReveal className="text-center mb-12">
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
               Info Klinik
             </h2>
-          </RevealCard>
+          </ScrollReveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { label: 'Lokasi', value: 'Jl. Pelita Raya, Bua Kana, Kec. Rappocini, Kota Makassar, Sulawesi Selatan 90231' },
@@ -164,12 +140,12 @@ export default function TentangKamiPage() {
               { label: 'Email', value: 'Ayna.medclinic@gmail.com' },
               { label: 'Jam Buka', value: 'Senin-Jumat: 08.00-20.00, Sabtu: 08.00-17.00' },
             ].map((info, i) => (
-              <RevealCard key={info.label} delay={i * 80}>
+              <ScrollReveal key={info.label} delay={i * 80}>
                 <div className="card text-center h-full">
                   <h3 className="font-display font-bold text-lg text-primary-600 mb-2">{info.label}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{info.value}</p>
                 </div>
-              </RevealCard>
+              </ScrollReveal>
             ))}
           </div>
         </div>
