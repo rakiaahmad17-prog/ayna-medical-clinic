@@ -1,17 +1,3 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/blog/page": "app/blog/page.js",
-  "/blog/[slug]/page": "app/blog/[slug]/page.js",
-  "/booking/page": "app/booking/page.js",
-  "/tentang-kami/page": "app/tentang-kami/page.js",
-  "/faq/page": "app/faq/page.js",
-  "/galeri/page": "app/galeri/page.js",
-  "/layanan/page": "app/layanan/page.js",
-  "/page": "app/page.js",
-  "/tim-dokter/page": "app/tim-dokter/page.js",
-  "/testimoni/page": "app/testimoni/page.js",
-  "/beranda/page": "app/beranda/page.js",
-  "/kontak/page": "app/kontak/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/login/page": "app/dashboard/login/page.js"
+  "/beranda/page": "app/beranda/page.js"
 }
