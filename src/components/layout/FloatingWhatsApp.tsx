@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { X } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
-const WhatsAppNumber = '6285343747010' // drg. Siti Hardianti
+const WhatsAppNumber = '6285343747010'
 
 const quickMessages = [
   'Halo, saya ingin membuat janji temu di Klinik AYNA Medical Clinic',
@@ -19,23 +19,30 @@ export default function FloatingWhatsApp() {
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [isDashboard, setIsDashboard] = useState(false)
 
+  // Initialize state on mount
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+    setIsDashboard(pathname?.startsWith('/dashboard') || false)
+  }, [pathname])
 
-  // Hide on dashboard routes
-  if (!isMounted || pathname?.startsWith('/dashboard')) {
-    return null
-  }
-
+  // Scroll listener
   useEffect(() => {
+    if (!isMounted) return
+
     const handleScroll = () => {
       setIsVisible(window.scrollY > 300)
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll() // Initial check
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [isMounted])
+
+  // Don't render on server or dashboard routes
+  if (!isMounted || isDashboard) {
+    return null
+  }
 
   const sendMessage = (text: string) => {
     const encodedText = encodeURIComponent(text)
@@ -98,7 +105,6 @@ export default function FloatingWhatsApp() {
             <Image src="/images/wa.png" alt="WhatsApp" width={28} height={28} className="object-contain" />
           </div>
         )}
-        {/* Pulse ring */}
         {!isOpen && (
           <span className="absolute w-14 h-14 rounded-full animate-ping opacity-30 -z-10" style={{ backgroundColor: '#25D366' }}></span>
         )}

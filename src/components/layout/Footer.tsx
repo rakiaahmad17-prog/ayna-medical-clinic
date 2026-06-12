@@ -32,21 +32,21 @@ const footerLinks = {
 export default function Footer() {
   const pathname = usePathname()
   const [isMounted, setIsMounted] = useState(false)
+  const [isDashboard, setIsDashboard] = useState(false)
+  const [currentYear, setCurrentYear] = useState(2024)
 
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+    setIsDashboard(pathname?.startsWith('/dashboard') || false)
+    setCurrentYear(new Date().getFullYear())
+  }, [pathname])
 
-  // Hide footer on dashboard routes
-  if (!isMounted || pathname?.startsWith('/dashboard')) {
+  if (!isMounted || isDashboard) {
     return null
   }
 
-  const currentYear = new Date().getFullYear()
-
   return (
     <footer className="bg-slate-900 text-white">
-      {/* Main Footer */}
       <div className="section-padding">
         <div className="section-container">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
