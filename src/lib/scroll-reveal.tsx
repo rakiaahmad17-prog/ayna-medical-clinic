@@ -5,10 +5,16 @@ import { useEffect, useRef, useState } from 'react'
 export function useScrollReveal(options?: IntersectionObserverInit) {
   const ref = useRef<HTMLElement>(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || !ref.current) return
+
     const element = ref.current
-    if (!element) return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -22,7 +28,7 @@ export function useScrollReveal(options?: IntersectionObserverInit) {
 
     observer.observe(element)
     return () => observer.disconnect()
-  }, [options])
+  }, [options, isMounted])
 
   return { ref, isVisible }
 }

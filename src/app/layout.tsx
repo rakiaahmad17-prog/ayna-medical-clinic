@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Header from '@/components/layout/Header'
-import Footer from '@/components/layout/Footer'
-import FloatingWhatsApp from '@/components/layout/FloatingWhatsApp'
+import ClientLayout from '@/components/ClientLayout'
 
 export const metadata: Metadata = {
   title: {
@@ -36,10 +34,7 @@ export default function RootLayout({
         <link rel="icon" href="/images/logo.png" />
       </head>
       <body className="font-body antialiased bg-white text-slate-800">
-        <Header />
-        <main>{children}</main>
-        <Footer />
-        <FloatingWhatsApp />
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   )

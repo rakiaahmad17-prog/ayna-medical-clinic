@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -21,19 +21,27 @@ export default function Header() {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Hide header on dashboard routes
-  if (pathname?.startsWith('/dashboard')) {
-    return null
-  }
-
+  // Hide header on dashboard routes (only on client)
   useEffect(() => {
+    setIsMounted(true)
+    if (pathname?.startsWith('/dashboard')) {
+      return
+    }
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20)
     }
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [pathname])
+
+  // Don't render on server or during initial mount if on dashboard
+  if (!isMounted || pathname?.startsWith('/dashboard')) {
+    return null
+  }
 
   return (
     <header

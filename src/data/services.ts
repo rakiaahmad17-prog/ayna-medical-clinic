@@ -65,7 +65,7 @@ export const services: Service[] = [
     name: 'Pencabutan Gigi',
     slug: 'pencabutan-gigi',
     shortDesc: 'Pencabutan gigi yang tidak bisa ditambal',
-    fullDesc: 'Pencabutan gigi dilakukan jika gigi sudah tidak bisa diselamatkan dengan penambalan atau perawatan lain. Prosedur dilakukan dengan anestesi lokal sehingga tidak sakit. Gigi wisudä (bungsu) yang bermasalah juga bisa ditangani.',
+    fullDesc: 'Pencabutan gigi dilakukan jika gigi sudah tidak bisa diselamatkan dengan penambalan atau perawatan lain. Prosedur dilakukan dengan anestesi lokal sehingga tidak sakit. Gigi bungsu yang bermasalah juga bisa ditangani.',
     icon: 'scissors',
     duration: '30 - 60 menit',
     priceRange: 'Rp 150.000 - 800.000',

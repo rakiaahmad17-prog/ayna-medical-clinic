@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -30,9 +31,14 @@ const footerLinks = {
 
 export default function Footer() {
   const pathname = usePathname()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Hide footer on dashboard routes
-  if (pathname?.startsWith('/dashboard')) {
+  if (!isMounted || pathname?.startsWith('/dashboard')) {
     return null
   }
 

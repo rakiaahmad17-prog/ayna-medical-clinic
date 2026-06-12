@@ -18,9 +18,14 @@ export default function FloatingWhatsApp() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Hide on dashboard routes
-  if (pathname?.startsWith('/dashboard')) {
+  if (!isMounted || pathname?.startsWith('/dashboard')) {
     return null
   }
 
@@ -28,7 +33,7 @@ export default function FloatingWhatsApp() {
     const handleScroll = () => {
       setIsVisible(window.scrollY > 300)
     }
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
