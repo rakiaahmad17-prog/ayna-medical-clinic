@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
@@ -13,13 +14,17 @@ export default function DashboardLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const isLoggedIn = document.cookie.includes('dashboard_auth=true')
-    if (isLoggedIn) {
+    const cookies = document.cookie.split(';').reduce((acc, c) => {
+      const [k, v] = c.trim().split('=')
+      acc[k] = v
+      return acc
+    }, {} as Record<string, string>)
+    if (cookies['dashboard_auth'] === 'true') {
       router.push('/dashboard')
     }
   }, [router])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -27,30 +32,27 @@ export default function DashboardLoginPage() {
     await new Promise(resolve => setTimeout(resolve, 500))
 
     if (password === 'ayna2026' || password === 'admin123') {
-      const expires = new Date()
-      expires.setDate(expires.getDate() + 7)
-      document.cookie = `dashboard_auth=true; expires=${expires.toUTCString()}; path=/`
-      document.cookie = `dashboard_user=Admin; expires=${expires.toUTCString()}; path=/`
+      const exp = new Date()
+      exp.setDate(exp.getDate() + 7)
+      document.cookie = `dashboard_auth=true; expires=${exp.toUTCString()}; path=/`
       router.push('/dashboard')
     } else {
-      setError('Password yang Anda masukkan salah. Silakan coba lagi.')
+      setError('Password salah')
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-warm-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-amber-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Image src="/images/logo.png" alt="Logo" width={48} height={48} className="object-contain" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-slate-800">Dashboard Login</h1>
-          <p className="text-slate-500 mt-2">Masuk ke panel admin Klinik AYNA</p>
+          <Image src="/images/logo.png" alt="Logo" width={64} height={64} className="w-16 h-16 rounded-2xl bg-teal-500 flex items-center justify-center mx-auto mb-4 shadow-lg" />
+          <h1 className="text-2xl font-bold text-slate-800">Dashboard Login</h1>
+          <p className="text-slate-500 mt-2">Masuk ke panel admin</p>
         </div>
 
-        <div className="card p-8">
-          <form onSubmit={handleLogin} className="space-y-6">
+        <div className="bg-white rounded-2xl p-8 shadow-lg">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="flex items-center gap-2 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
                 <AlertCircle size={18} />
@@ -61,31 +63,35 @@ export default function DashboardLoginPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock size={18} className="text-slate-400" />
-                </div>
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Masukkan password"
-                  className="input-field pl-12 pr-12"
+                  className="w-full pl-12 pr-12 py-3 rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none"
                   required
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={isLoading} className="btn-primary w-full py-4">
+            <button type="submit" disabled={isLoading} className="w-full bg-teal-500 text-white py-3 rounded-xl font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50">
               {isLoading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
         </div>
 
         <div className="text-center mt-6">
-          <a href="/beranda" className="text-sm text-primary-600 hover:text-primary-700">← Kembali ke Website</a>
+          <Link href="/beranda" className="text-sm text-teal-600 hover:text-teal-700">
+            ← Kembali ke Website
+          </Link>
         </div>
       </div>
     </div>
