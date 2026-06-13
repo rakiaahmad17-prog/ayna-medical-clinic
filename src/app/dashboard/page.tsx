@@ -1,336 +1,581 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Users, Calendar, FileText, LogOut, Menu, X, Eye, Clock, TrendingUp, ChevronLeft } from 'lucide-react'
-import { dashboardStats, recentBookings, patients } from '@/data/dashboard'
+import {
+  LayoutDashboard, Users, Calendar, LogOut, Menu, Eye, Clock,
+  TrendingUp, FileSpreadsheet, Printer, ChevronLeft, BarChart3,
+  Search, Plus, X, Check, AlertCircle, ChevronRight,
+  Trash2, RefreshCw, Inbox, ArrowUpRight, ArrowDownRight, PieChart
+} from 'lucide-react'
+import {
+  DashboardStats, Booking, emptyStats, emptyBookings,
+  generateBookingCSV, generateBookingPDF, downloadCSV,
+  getStatusColor, getStatusLabel, emptyStateMessages,
+  loadBookingsFromStorage, saveBookingsToStorage, clearAllData,
+  generateFullReportPDF, generateFullReportCSV, Patient
+} from '@/data/dashboard'
+
+// Toast Notification
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000)
+    return () => clearTimeout(timer)
+  }, [onClose])
+
+  return (
+    <div className={`fixed bottom-4 right-4 ${type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} text-white px-6 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-slide-up`}>
+      {type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+      <span className="font-medium">{message}</span>
+      <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded p-1"><X size={16} /></button>
+    </div>
+  )
+}
+
+// Empty State Component
+function EmptyState({ title, description, icon }: {
+  title: string; description: string; icon: 'calendar' | 'users' | 'chart'
+}) {
+  const icons = { calendar: Calendar, users: Users, chart: BarChart3 }
+  const Icon = icons[icon]
+  return (
+    <div className="flex flex-col items-center justify-center py-16 animate-fade-in">
+      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+        <Icon size={40} className="text-slate-400" />
+      </div>
+      <h3 className="text-xl font-semibold text-slate-700 mb-2">{title}</h3>
+      <p className="text-slate-500 text-center max-w-md">{description}</p>
+    </div>
+  )
+}
+
+// Stat Card with Animation
+function StatCard({ title, value, icon: Icon, color, delay, trend }: {
+  title: string; value: number | string; icon: any; color: string; delay: number; trend?: { value: number; positive: boolean }
+}) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setVisible(true), delay); return () => clearTimeout(t) }, [delay])
+
+  return (
+    <div className={`bg-white rounded-2xl p-6 shadow-lg transition-all duration-500 hover:shadow-xl hover:scale-[1.02] ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: `${delay}ms` }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
+          <Icon size={24} className="text-white" />
+        </div>
+        {trend && (
+          <span className={`text-xs flex items-center gap-1 px-2 py-1 rounded-full ${trend.positive ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+            {trend.positive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{trend.value}%
+          </span>
+        )}
+      </div>
+      <div className="text-3xl font-bold text-slate-800">{value}</div>
+      <div className="text-sm text-slate-500">{title}</div>
+    </div>
+  )
+}
+
+// Status Badge
+function StatusBadge({ status }: { status: Booking['status'] }) {
+  return <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>{getStatusLabel(status)}</span>
+}
+
+// ========== MAIN DASHBOARD ==========
 
 export default function DashboardPage() {
   const router = useRouter()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [stats, setStats] = useState<DashboardStats>(emptyStats)
 
   useEffect(() => {
-    const cookies = document.cookie.split(';').reduce((acc, c) => {
-      const [k, v] = c.trim().split('=')
-      acc[k] = v
-      return acc
-    }, {} as Record<string, string>)
-    if (!cookies['dashboard_auth']) {
-      router.push('/dashboard/login')
+    const stored = loadBookingsFromStorage()
+    const data = stored.length > 0 ? stored : emptyBookings
+    setBookings(data)
+
+    if (data.length > 0) {
+      const uniquePatients = new Set(data.map(b => b.nama))
+      const monthlyTrends: { [key: string]: number } = {}
+      const serviceCounts: { [key: string]: number } = {}
+
+      data.forEach(b => {
+        const month = new Date(b.tanggal).toLocaleDateString('id-ID', { month: 'short' })
+        monthlyTrends[month] = (monthlyTrends[month] || 0) + 1
+        serviceCounts[b.layanan] = (serviceCounts[b.layanan] || 0) + 1
+      })
+
+      setStats({
+        totalBooking: data.length,
+        bookingPending: data.filter(b => b.status === 'pending').length,
+        bookingConfirmed: data.filter(b => b.status === 'confirmed').length,
+        bookingCompleted: data.filter(b => b.status === 'completed').length,
+        bookingCancelled: data.filter(b => b.status === 'cancelled').length,
+        totalPasien: uniquePatients.size,
+        pertumbuhan: 12,
+        bookingPerBulan: Object.entries(monthlyTrends).map(([bulan, jumlah]) => ({ bulan, jumlah })),
+        layananPopuler: Object.entries(serviceCounts).map(([nama, jumlah]) => ({ nama, jumlah })),
+        dokterPopuler: []
+      })
     }
-  }, [router])
+  }, [])
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+  }, [])
 
   const handleLogout = () => {
     document.cookie = 'dashboard_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
-    document.cookie = 'user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
     router.push('/dashboard/login')
   }
 
+  const handleExportCSV = () => {
+    const csv = generateBookingCSV(bookings)
+    downloadCSV(csv, `booking-report-${new Date().toISOString().split('T')[0]}.csv`)
+    showToast('CSV berhasil diunduh!', 'success')
+  }
+
+  const handleExportPDF = () => {
+    generateBookingPDF(bookings)
+    showToast('PDF berhasil diunduh!', 'success')
+  }
+
+  const handleDeleteBooking = (id: string) => {
+    if (confirm('Hapus booking ini?')) {
+      const updated = bookings.filter(b => b.id !== id)
+      setBookings(updated)
+      saveBookingsToStorage(updated)
+      showToast('Booking dihapus', 'success')
+    }
+  }
+
+  const handleClearAllData = () => {
+    if (confirm('⚠️ PERHATIAN!\n\nApakah Anda yakin ingin menghapus SEMUA data?\n\nTindakan ini tidak dapat dibatalkan!\n\n- Semua booking akan dihapus\n- Semua data pasien akan dihapus')) {
+      clearAllData()
+      setBookings([])
+      setStats(emptyStats)
+      showToast('Semua data berhasil dihapus!', 'success')
+    }
+  }
+
+  const handleUpdateStatus = (id: string, status: Booking['status']) => {
+    const updated = bookings.map(b => b.id === id ? { ...b, status } : b)
+    setBookings(updated)
+    saveBookingsToStorage(updated)
+    showToast(`Status: ${getStatusLabel(status)}`, 'success')
+  }
+
+  const filteredBookings = bookings.filter(b =>
+    (b.nama.toLowerCase().includes(searchTerm.toLowerCase()) || b.layanan.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (statusFilter === 'all' || b.status === statusFilter)
+  )
+
+  const hasData = bookings.length > 0
+
   return (
-    <div className="min-h-screen bg-slate-100 flex">
-      {/* Desktop Sidebar */}
-      <aside className={`hidden lg:flex flex-col fixed inset-y-0 left-0 bg-slate-900 text-white transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'}`}>
-        <div className="flex items-center gap-3 p-4 border-b border-slate-800">
-          <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-50 flex">
+      {/* Sidebar */}
+      <aside className={`hidden lg:flex flex-col fixed inset-y-0 left-0 bg-gradient-to-b from-slate-900 to-slate-800 text-white transition-all duration-300 z-40 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+        <div className="flex items-center gap-3 p-4 border-b border-slate-700/50">
+          <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center shadow-lg flex-shrink-0">
             <Image src="/images/logo.png" alt="Logo" width={40} height={40} className="object-contain" />
           </div>
-          {isSidebarOpen && <span className="font-bold text-lg">AYNA Admin</span>}
+          {sidebarOpen && <span className="font-bold text-lg">AYNA Admin</span>}
         </div>
-
         <nav className="flex-1 p-4 space-y-1">
-          <button onClick={() => setActiveTab('overview')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              activeTab === 'overview' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <LayoutDashboard size={20} />
-            {isSidebarOpen && <span>Dashboard</span>}
-          </button>
-          <button onClick={() => setActiveTab('bookings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              activeTab === 'bookings' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Calendar size={20} />
-            {isSidebarOpen && <span>Booking</span>}
-          </button>
-          <button onClick={() => setActiveTab('patients')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              activeTab === 'patients' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Users size={20} />
-            {isSidebarOpen && <span>Pasien</span>}
-          </button>
-          <button onClick={() => setActiveTab('reports')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              activeTab === 'reports' ? 'bg-teal-500 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <FileText size={20} />
-            {isSidebarOpen && <span>Laporan</span>}
-          </button>
+          {[
+            { id: 'overview', icon: LayoutDashboard, label: 'Dashboard' },
+            { id: 'bookings', icon: Calendar, label: 'Booking' },
+            { id: 'patients', icon: Users, label: 'Pasien' },
+            { id: 'reports', icon: BarChart3, label: 'Statistik' },
+          ].map(({ id, icon: Icon, label }) => (
+            <button key={id} onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === id ? 'bg-teal-500 shadow-lg' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
+              <Icon size={20} /> {sidebarOpen && <span>{label}</span>}
+            </button>
+          ))}
         </nav>
-
-        <div className="p-4 border-t border-slate-800 space-y-1">
-          <Link href="/beranda" className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm">
-            <Eye size={18} />
-            {isSidebarOpen && <span>Lihat Website</span>}
+        <div className="p-4 border-t border-slate-700/50 space-y-1">
+          <Link href="/beranda" className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/50 hover:text-white transition-all text-sm">
+            <Eye size={18} /> {sidebarOpen && <span>Lihat Website</span>}
           </Link>
-          <button onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all text-sm">
-            <LogOut size={18} />
-            {isSidebarOpen && <span>Logout</span>}
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all text-sm">
+            <LogOut size={18} /> {sidebarOpen && <span>Logout</span>}
           </button>
         </div>
       </aside>
 
       {/* Mobile Menu */}
-      {isMobileOpen && (
+      {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileOpen(false)} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute inset-y-0 left-0 w-72 bg-slate-900 text-white">
             <div className="flex items-center justify-between p-4 border-b border-slate-800">
-              <Link href="/beranda" onClick={() => setIsMobileOpen(false)} className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center">
-                  <Image src="/images/logo.png" alt="Logo" width={40} height={40} className="object-contain" />
+                  <Image src="/images/logo.png" alt="Logo" width={40} height={40} />
                 </div>
                 <span className="font-bold">AYNA Admin</span>
-              </Link>
-              <button onClick={() => setIsMobileOpen(false)} className="p-2 rounded-lg hover:bg-slate-800">
-                <X size={20} />
-              </button>
+              </div>
+              <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-slate-800"><X size={20} /></button>
             </div>
-
             <nav className="p-4 space-y-1">
-              <button onClick={() => { setActiveTab('overview'); setIsMobileOpen(false) }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'overview' ? 'bg-teal-500 text-white' : 'text-slate-400' }`}>
-                <LayoutDashboard size={20} />
-                <span>Dashboard</span>
-              </button>
-              <button onClick={() => { setActiveTab('bookings'); setIsMobileOpen(false) }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'bookings' ? 'bg-teal-500 text-white' : 'text-slate-400' }`}>
-                <Calendar size={20} />
-                <span>Booking</span>
-              </button>
-              <button onClick={() => { setActiveTab('patients'); setIsMobileOpen(false) }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'patients' ? 'bg-teal-500 text-white' : 'text-slate-400' }`}>
-                <Users size={20} />
-                <span>Pasien</span>
-              </button>
-              <button onClick={() => { setActiveTab('reports'); setIsMobileOpen(false) }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  activeTab === 'reports' ? 'bg-teal-500 text-white' : 'text-slate-400' }`}>
-                <FileText size={20} />
-                <span>Laporan</span>
-              </button>
+              {[
+                { id: 'overview', icon: LayoutDashboard, label: 'Dashboard' },
+                { id: 'bookings', icon: Calendar, label: 'Booking' },
+                { id: 'patients', icon: Users, label: 'Pasien' },
+                { id: 'reports', icon: BarChart3, label: 'Statistik' },
+              ].map(({ id, icon: Icon, label }) => (
+                <button key={id} onClick={() => { setActiveTab(id); setMobileOpen(false) }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${activeTab === id ? 'bg-teal-500 text-white' : 'text-slate-400'}`}>
+                  <Icon size={20} /> <span>{label}</span>
+                </button>
+              ))}
             </nav>
-
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
-              <button onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 transition-colors text-sm">
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 min-h-screen transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : ''}`}>
-        {/* Header */}
-        <header className="bg-white shadow-sm sticky top-0 z-20">
+      <main className={`flex-1 min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}>
+        <header className="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsMobileOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-100"
-              >
-                <Menu size={24} className="text-slate-600" />
+              <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100"><Menu size={24} className="text-slate-600" /></button>
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="hidden lg:flex p-2 rounded-lg hover:bg-slate-100">
+                <ChevronLeft size={20} className={`text-slate-600 transition-transform duration-300 ${!sidebarOpen ? 'rotate-180' : ''}`} />
               </button>
-              <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="hidden lg:flex p-2 rounded-lg hover:bg-slate-100"
-              >
-                {isSidebarOpen ? (
-                  <ChevronLeft size={20} className="text-slate-600" />
-                ) : (
-                  <ChevronLeft size={20} className="text-slate-600" style={{ transform: 'rotate(180deg)' }} />
-                )}
-              </button>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-semibold text-sm">
-                A
+              <div>
+                <div className="text-xs text-slate-400">Dashboard</div>
+                <div className="font-semibold text-slate-800">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
               </div>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold shadow-lg">
+              A
             </div>
           </div>
         </header>
 
-        {/* Content */}
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 space-y-6">
           {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in">
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Selamat Datang, Admin!</h1>
-                <p className="text-slate-500 mt-1">Ringkasan aktivitas klinik</p>
+                <h1 className="text-2xl font-bold text-slate-800">Selamat Datang, Admin! 👋</h1>
+                <p className="text-slate-500">Ringkasan aktivitas klinik</p>
               </div>
 
-              {/* Stats Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center mb-4">
-                    <Calendar size={20} className="text-white" />
-                  </div>
-                  <div className="text-2xl lg:text-3xl font-bold text-slate-800">{dashboardStats.totalBooking}</div>
-                  <div className="text-sm text-slate-500 mt-1">Total Booking</div>
+                <StatCard title="Total Booking" value={stats.totalBooking} icon={Calendar} color="from-blue-500 to-blue-600" delay={0} trend={{ value: 12, positive: true }} />
+                <StatCard title="Booking Pending" value={stats.bookingPending} icon={Clock} color="from-amber-500 to-orange-500" delay={100} />
+                <StatCard title="Total Pasien" value={stats.totalPasien} icon={Users} color="from-emerald-500 to-green-600" delay={200} trend={{ value: 8, positive: true }} />
+                <StatCard title="Pertumbuhan" value={`+${stats.pertumbuhan}%`} icon={TrendingUp} color="from-purple-500 to-violet-600" delay={300} />
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <h3 className="font-semibold text-slate-800 mb-4">📊 Tren Booking Bulanan</h3>
+                  {hasData ? (
+                    <div className="space-y-3">
+                      {stats.bookingPerBulan.map((b) => {
+                        const max = Math.max(...stats.bookingPerBulan.map(x => x.jumlah), 1)
+                        return (
+                          <div key={b.bulan} className="flex items-center gap-3">
+                            <span className="w-12 text-xs text-slate-500">{b.bulan}</span>
+                            <div className="flex-1 bg-slate-100 rounded-full h-3">
+                              <div className="h-full bg-gradient-to-r from-teal-500 to-teal-400 rounded-full transition-all duration-700" style={{ width: `${(b.jumlah / max) * 100}%` }} />
+                            </div>
+                            <span className="text-sm font-medium text-slate-600 w-8">{b.jumlah}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : <EmptyState title="Belum Ada Data" description="Tren booking akan muncul setelah ada data." icon="chart" />}
                 </div>
-                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-yellow-500 flex items-center justify-center mb-4">
-                    <Clock size={20} className="text-white" />
-                  </div>
-                  <div className="text-2xl lg:text-3xl font-bold text-slate-800">{dashboardStats.bookingPending}</div>
-                  <div className="text-sm text-slate-500 mt-1">Pending</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center mb-4">
-                    <Users size={20} className="text-white" />
-                  </div>
-                  <div className="text-2xl lg:text-3xl font-bold text-slate-800">{dashboardStats.totalPasien}</div>
-                  <div className="text-sm text-slate-500 mt-1">Total Pasien</div>
-                </div>
-                <div className="bg-white rounded-xl p-4 lg:p-6 shadow-sm">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center mb-4">
-                    <TrendingUp size={20} className="text-white" />
-                  </div>
-                  <div className="text-2xl lg:text-3xl font-bold text-slate-800">+12%</div>
-                  <div className="text-sm text-slate-500 mt-1">Growth</div>
+
+                <div className="bg-white rounded-2xl p-6 shadow-lg">
+                  <h3 className="font-semibold text-slate-800 mb-4">🏥 Layanan Popular</h3>
+                  {hasData ? (
+                    <div className="space-y-3">
+                      {stats.layananPopuler.map((l, i) => (
+                        <div key={l.nama} className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center text-sm font-bold">{i + 1}</span>
+                          <span className="flex-1 text-sm text-slate-700">{l.nama}</span>
+                          <span className="text-sm font-medium text-slate-500">{l.jumlah} booking</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <EmptyState title="Belum Ada Data" description="Layanan popular akan muncul setelah ada data." icon="chart" />}
                 </div>
               </div>
 
-              {/* Recent Bookings */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 lg:p-6 border-b border-slate-100">
-                  <h2 className="text-lg font-bold text-slate-800">Booking Terbaru</h2>
-                  <Link href="/dashboard" onClick={() => setActiveTab('bookings')} className="text-sm text-teal-600 hover:text-teal-700">
-                    Lihat Semua →
-                  </Link>
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b">
+                  <h3 className="font-semibold text-slate-800">📋 Booking Terbaru</h3>
+                  <button onClick={() => setActiveTab('bookings')} className="text-sm text-teal-600 hover:text-teal-700">Lihat Semua →</button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left border-b border-slate-100 bg-slate-50">
+                {hasData ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead><tr className="text-left bg-slate-50">
                         <th className="p-4 text-xs font-semibold text-slate-500">Nama</th>
                         <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Layanan</th>
-                        <th className="p-4 text-xs font-semibold text-slate-500">Tanggal</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Tanggal</th>
                         <th className="p-4 text-xs font-semibold text-slate-500">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentBookings.map((booking) => (
-                        <tr key={booking.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="p-4 font-medium text-slate-800">{booking.nama}</td>
-                          <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
-                          <td className="p-4 text-sm text-slate-600">{booking.tanggal}</td>
-                          <td className="p-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                              booking.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                              booking.status === 'completed' ? 'bg-green-100 text-green-700' :
-                              'bg-red-100 text-red-700'
-                            }`}>
-                              {booking.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        <th className="p-4 text-xs font-semibold text-slate-500">Aksi</th>
+                      </tr></thead>
+                      <tbody>
+                        {bookings.slice(0, 5).map((booking) => (
+                          <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="p-4">
+                              <div className="font-medium text-slate-800">{booking.nama}</div>
+                              <div className="text-xs text-slate-400">{booking.dokter}</div>
+                            </td>
+                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
+                            <td className="p-4 text-sm text-slate-500 hidden sm:table-cell">{booking.tanggal}</td>
+                            <td className="p-4"><StatusBadge status={booking.status} /></td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <button onClick={() => handleUpdateStatus(booking.id, booking.status === 'pending' ? 'confirmed' : 'completed')} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600" title="Update">
+                                  <Check size={16} />
+                                </button>
+                                <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600" title="Hapus">
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <EmptyState title={emptyStateMessages.bookings.title} description={emptyStateMessages.bookings.description} icon="calendar" />
+                )}
               </div>
             </div>
           )}
 
           {/* Bookings Tab */}
           {activeTab === 'bookings' && (
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden p-4 lg:p-6">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Semua Booking</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left border-b border-slate-100 bg-slate-50">
-                      <th className="p-4 text-xs font-semibold text-slate-500">Nama</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Layanan</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500">Tanggal</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentBookings.map((booking) => (
-                      <tr key={booking.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="p-4 font-medium text-slate-800">{booking.nama}</td>
-                        <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
-                        <td className="p-4 text-sm text-slate-600">{booking.tanggal}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                            booking.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                            booking.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {booking.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <h2 className="text-lg font-bold text-slate-800">📅 Semua Booking</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-medium hover:bg-emerald-600 transition-all hover:scale-105">
+                      <FileSpreadsheet size={16} /> Export CSV
+                    </button>
+                    <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-all hover:scale-105">
+                      <Printer size={16} /> Export PDF
+                    </button>
+                    {hasData && (
+                      <button onClick={handleClearAllData} className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition-all hover:scale-105">
+                        <Trash2 size={16} /> Hapus Semua
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="text" placeholder="Cari booking..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl">
+                    <option value="all">Semua Status</option>
+                    <option value="pending">Menunggu</option>
+                    <option value="confirmed">Dikonfirmasi</option>
+                    <option value="completed">Selesai</option>
+                    <option value="cancelled">Dibatalkan</option>
+                  </select>
+                </div>
+
+                {hasData ? (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full">
+                      <thead><tr className="bg-slate-50 text-left">
+                        <th className="p-4 text-xs font-semibold text-slate-500">Nama</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Layanan</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Tanggal & Waktu</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500">Status</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500">Aksi</th>
+                      </tr></thead>
+                      <tbody>
+                        {filteredBookings.map((booking) => (
+                          <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50">
+                            <td className="p-4">
+                              <div className="font-medium text-slate-800">{booking.nama}</div>
+                              <div className="text-xs text-slate-400">{booking.whatsapp}</div>
+                            </td>
+                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
+                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.tanggal} {booking.waktu}</td>
+                            <td className="p-4"><StatusBadge status={booking.status} /></td>
+                            <td className="p-4">
+                              <div className="flex gap-2">
+                                <select value={booking.status} onChange={(e) => handleUpdateStatus(booking.id, e.target.value as Booking['status'])} className="text-xs border rounded px-2 py-1">
+                                  <option value="pending">Menunggu</option>
+                                  <option value="confirmed">Konfirmasi</option>
+                                  <option value="completed">Selesai</option>
+                                  <option value="cancelled">Batal</option>
+                                </select>
+                                <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <EmptyState title={emptyStateMessages.bookings.title} description={emptyStateMessages.bookings.description} icon="calendar" />
+                )}
               </div>
             </div>
           )}
 
           {/* Patients Tab */}
           {activeTab === 'patients' && (
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden p-4 lg:p-6">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Data Pasien</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left border-b border-slate-100 bg-slate-50">
-                      <th className="p-4 text-xs font-semibold text-slate-500">Nama</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">WhatsApp</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Kunjungan</th>
-                      <th className="p-4 text-xs font-semibold text-slate-500">Terakhir</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {patients.map((patient) => (
-                      <tr key={patient.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="p-4 font-medium text-slate-800">{patient.nama}</td>
-                        <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{patient.whatsapp}</td>
-                        <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{patient.totalKunjungan}x</td>
-                        <td className="p-4 text-sm text-slate-600">{patient.terakhirKunjungan}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <h2 className="text-lg font-bold text-slate-800 mb-6">👥 Data Pasien</h2>
+                {hasData ? (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full">
+                      <thead><tr className="bg-slate-50 text-left">
+                        <th className="p-4 text-xs font-semibold text-slate-500">Nama</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">WhatsApp</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Total Kunjungan</th>
+                        <th className="p-4 text-xs font-semibold text-slate-500">Terakhir</th>
+                      </tr></thead>
+                      <tbody>
+                        {[...new Map(bookings.map(b => [b.nama, { nama: b.nama, whatsapp: b.whatsapp, kunjungan: bookings.filter(x => x.nama === b.nama).length, terakhir: b.tanggal }])).values()].map((p) => (
+                          <tr key={p.nama} className="border-t border-slate-100 hover:bg-slate-50">
+                            <td className="p-4 font-medium text-slate-800">{p.nama}</td>
+                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{p.whatsapp}</td>
+                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{p.kunjungan}x</td>
+                            <td className="p-4 text-sm text-slate-500">{p.terakhir}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <EmptyState title={emptyStateMessages.patients.title} description={emptyStateMessages.patients.description} icon="users" />
+                )}
               </div>
             </div>
           )}
 
           {/* Reports Tab */}
           {activeTab === 'reports' && (
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Laporan</h2>
-              <p className="text-sm text-slate-500 mb-4">Export data dalam format spreadsheet</p>
-              <button className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium">
-                Download CSV
-              </button>
+            <div className="space-y-6 animate-fade-in">
+              <h2 className="text-2xl font-bold text-slate-800">📊 Statistik & Laporan</h2>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
+                  <Calendar size={32} className="text-teal-500 mx-auto mb-4" />
+                  <div className="text-3xl font-bold text-slate-800">{stats.totalBooking}</div>
+                  <div className="text-sm text-slate-500">Total Booking</div>
+                </div>
+                <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
+                  <Users size={32} className="text-emerald-500 mx-auto mb-4" />
+                  <div className="text-3xl font-bold text-slate-800">{stats.totalPasien}</div>
+                  <div className="text-sm text-slate-500">Total Pasien</div>
+                </div>
+                <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
+                  <Clock size={32} className="text-amber-500 mx-auto mb-4" />
+                  <div className="text-3xl font-bold text-slate-800">{stats.bookingPending}</div>
+                  <div className="text-sm text-slate-500">Pending</div>
+                </div>
+                <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
+                  <TrendingUp size={32} className="text-purple-500 mx-auto mb-4" />
+                  <div className="text-3xl font-bold text-slate-800">+{stats.pertumbuhan}%</div>
+                  <div className="text-sm text-slate-500">Pertumbuhan</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 className="font-semibold text-slate-800 mb-4">📥 Export Laporan</h3>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <button onClick={() => { generateBookingPDF(bookings); showToast('PDF Booking berhasil diunduh!', 'success') }} className="flex items-center gap-3 p-4 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-all">
+                    <FileSpreadsheet size={24} />
+                    <div className="text-left">
+                      <div className="font-medium">PDF Booking</div>
+                      <div className="text-sm opacity-80">Laporan data booking</div>
+                    </div>
+                  </button>
+                  <button onClick={() => { const csv = generateBookingCSV(bookings); downloadCSV(csv, `booking-report-${new Date().toISOString().split('T')[0]}.csv`); showToast('CSV Booking berhasil diunduh!', 'success') }} className="flex items-center gap-3 p-4 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all">
+                    <FileSpreadsheet size={24} />
+                    <div className="text-left">
+                      <div className="font-medium">CSV Booking</div>
+                      <div className="text-sm opacity-80">Data booking spreadsheet</div>
+                    </div>
+                  </button>
+                  <button onClick={() => { generateFullReportPDF(stats, bookings, []); showToast('PDF Laporan Lengkap berhasil diunduh!', 'success') }} className="flex items-center gap-3 p-4 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-all">
+                    <Printer size={24} />
+                    <div className="text-left">
+                      <div className="font-medium">PDF Lengkap</div>
+                      <div className="text-sm opacity-80">Statistik + booking</div>
+                    </div>
+                  </button>
+                  <button onClick={() => { const csv = generateFullReportCSV(stats, bookings, []); downloadCSV(csv, `laporan-lengkap-${new Date().toISOString().split('T')[0]}.csv`); showToast('CSV Laporan Lengkap berhasil diunduh!', 'success') }} className="flex items-center gap-3 p-4 bg-teal-500 text-white rounded-xl hover:bg-teal-600 transition-all">
+                    <FileSpreadsheet size={24} />
+                    <div className="text-left">
+                      <div className="font-medium">CSV Lengkap</div>
+                      <div className="text-sm opacity-80">Semua data statistik</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 className="font-semibold text-slate-800 mb-4">⚠️ Zona Berbahaya</h3>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-red-700 mb-1">Hapus Semua Data</h4>
+                      <p className="text-sm text-red-600 mb-3">Tindakan ini akan menghapus semua data booking dan pasien secara permanen. Data yang dihapus tidak dapat dikembalikan!</p>
+                      <button onClick={handleClearAllData} className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all text-sm font-medium">
+                        <Trash2 size={16} /> Hapus Semua Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <h3 className="font-semibold text-slate-800 mb-4">📈 Grafik Bulanan</h3>
+                {hasData ? (
+                  <div className="space-y-4">
+                    {stats.bookingPerBulan.map((b) => {
+                      const max = Math.max(...stats.bookingPerBulan.map(x => x.jumlah), 1)
+                      return (
+                        <div key={b.bulan} className="flex items-center gap-4">
+                          <span className="w-12 text-sm text-slate-500">{b.bulan}</span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-8 overflow-hidden">
+                            <div className="bg-gradient-to-r from-teal-500 to-teal-400 h-full rounded-full flex items-center justify-end px-3 transition-all" style={{ width: `${(b.jumlah / max) * 100}%` }}>
+                              <span className="text-white text-sm font-medium">{b.jumlah} booking</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState title={emptyStateMessages.stats.title} description={emptyStateMessages.stats.description} icon="chart" />
+                )}
+              </div>
             </div>
           )}
         </div>
       </main>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }
