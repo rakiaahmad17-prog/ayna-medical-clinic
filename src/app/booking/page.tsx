@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Calendar, Clock, User, Phone, Mail, MessageCircle, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, User, Phone, Mail, MessageCircle, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { DOCTOR_WHATSAPP } from '@/lib/config'
 
 const serviceOptions = [
   'Scaling & Cleaning',
@@ -27,12 +28,6 @@ const timeSlots = [
   '13.00', '14.00', '15.00', '16.00', '17.00', '18.00', '19.00',
 ]
 
-const doctorPhones: Record<string, string> = {
-  'drg. Siti Hardianti': '6285343747010',
-  'drg. Fajrin Wijaya': '6281256718190',
-  'Tidak ada preferensi': '6285343747010',
-}
-
 export default function BookingPage() {
   const [formData, setFormData] = useState({
     nama: '',
@@ -47,6 +42,8 @@ export default function BookingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [bookingId, setBookingId] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
@@ -66,11 +63,12 @@ export default function BookingPage() {
     if (!validate()) return
 
     setIsSubmitting(true)
+    setSubmitError(null)
 
-    const selectedPhone = doctorPhones[formData.dokter] || '6285343747010'
+    const selectedPhone = DOCTOR_WHATSAPP[formData.dokter] || DOCTOR_WHATSAPP['Tidak ada preferensi']
     const dokterName = formData.dokter
 
-    // Build WhatsApp message
+    // Build WhatsApp message (backup notification)
     const message = `Halo Klinik AYNA Medical Clinic!
 
 *saya ingin booking janji temu:*
@@ -83,14 +81,49 @@ ${formData.email ? `*Email:* ${formData.email}\n` : ''}*Layanan:* ${formData.lay
 *Waktu:* ${formData.waktu}
 ${formData.pesan ? `\n*Pesan:*\n${formData.pesan}` : ''}`
 
-    // Simulate submission delay
-    await new Promise(resolve => setTimeout(resolve, 800))
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    try {
+      // PRIMARY: Save booking to database first
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nama: formData.nama,
+          whatsapp: formData.whatsapp,
+          email: formData.email,
+          layanan: formData.layanan,
+          dokter: formData.dokter,
+          tanggal: formData.tanggal,
+          waktu: formData.waktu,
+          pesan: formData.pesan,
+        }),
+      })
 
-    // Open WhatsApp
-    const encoded = encodeURIComponent(message)
-    window.open(`https://wa.me/${selectedPhone}?text=${encoded}`, '_blank')
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save booking')
+      }
+
+      // Save booking ID for display
+      setBookingId(data.bookingId)
+
+      // Backup: Open WhatsApp as secondary notification
+      const encoded = encodeURIComponent(message)
+      window.open(`https://wa.me/${selectedPhone}?text=${encoded}`, '_blank')
+
+      setIsSubmitting(false)
+      setIsSubmitted(true)
+    } catch (error) {
+      console.error('Booking error:', error)
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Terjadi kesalahan saat menyimpan booking. Silakan coba lagi.'
+      )
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -118,11 +151,17 @@ ${formData.pesan ? `\n*Pesan:*\n${formData.pesan}` : ''}`
               <CheckCircle2 size={40} className="text-green-500" />
             </div>
             <h2 className="font-display text-3xl font-bold text-slate-900 mb-4">
-              Pesan Terkirim!
+              Booking Berhasil!
             </h2>
             <p className="text-slate-600 mb-6 leading-relaxed">
-              Form booking Anda sudah terkirim via WhatsApp. Tim kami akan menghubungi Anda dalam 1 jam untuk konfirmasi janji temu.
+              Booking Anda telah tersimpan di sistem kami. Tim kami akan menghubungi Anda dalam 1 jam untuk konfirmasi janji temu.
             </p>
+            {bookingId && (
+              <div className="bg-primary-50 border border-primary-200 rounded-2xl p-4 mb-6">
+                <p className="text-sm text-primary-700 mb-1">ID Booking:</p>
+                <p className="font-mono font-bold text-xl text-primary-800">{bookingId}</p>
+              </div>
+            )}
             <div className="bg-surface-50 rounded-2xl p-6 mb-8">
               <h3 className="font-semibold text-slate-800 mb-3">Detail Booking:</h3>
               <div className="text-left space-y-2 text-sm text-slate-600">
@@ -133,7 +172,20 @@ ${formData.pesan ? `\n*Pesan:*\n${formData.pesan}` : ''}`
                 <p><span className="font-medium">Waktu:</span> {formData.waktu}</p>
               </div>
             </div>
-            <button onClick={() => setIsSubmitted(false)} className="btn-secondary">
+            <button onClick={() => {
+              setIsSubmitted(false)
+              setBookingId(null)
+              setFormData({
+                nama: '',
+                whatsapp: '',
+                email: '',
+                layanan: '',
+                dokter: '',
+                tanggal: '',
+                waktu: '',
+                pesan: '',
+              })
+            }} className="btn-secondary">
               Booking Lagi
             </button>
           </div>
@@ -313,20 +365,31 @@ ${formData.pesan ? `\n*Pesan:*\n${formData.pesan}` : ''}`
                     />
                   </div>
 
+                  {/* Submit Error */}
+                  {submitError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                      <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-red-800">Gagal menyimpan booking</p>
+                        <p className="text-sm text-red-600 mt-1">{submitError}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
                     className="btn-primary w-full py-4 text-base"
                   >
                     {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Mengirim...
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={18} className="animate-spin" />
+                        Menyimpan Booking...
                       </span>
                     ) : (
                       <>
-                        <MessageCircle size={18} />
-                        Kirim via WhatsApp
+                        <CheckCircle2 size={18} />
+                        Simpan Booking
                       </>
                     )}
                   </button>

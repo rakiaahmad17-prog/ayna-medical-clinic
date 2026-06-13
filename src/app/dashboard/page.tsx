@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -8,7 +8,8 @@ import {
   LayoutDashboard, Users, Calendar, LogOut, Menu, Eye, Clock,
   TrendingUp, FileSpreadsheet, Printer, ChevronLeft, BarChart3,
   Search, Plus, X, Check, AlertCircle, ChevronRight,
-  Trash2, RefreshCw, Inbox, ArrowUpRight, ArrowDownRight, PieChart
+  Trash2, RefreshCw, Inbox, ArrowUpRight, ArrowDownRight, PieChart,
+  Database, Download, Loader2, CloudOff, Cloud
 } from 'lucide-react'
 import {
   DashboardStats, Booking, emptyStats, emptyBookings,
@@ -17,6 +18,17 @@ import {
   loadBookingsFromStorage, saveBookingsToStorage, clearAllData,
   generateFullReportPDF, generateFullReportCSV, Patient
 } from '@/data/dashboard'
+
+// Types for API responses
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  message?: string
+}
+
+interface BookingApiResponse extends ApiResponse<Booking | Booking[]> {
+  total?: number
+}
 
 // Toast Notification
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -30,6 +42,39 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
       {type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
       <span className="font-medium">{message}</span>
       <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded p-1"><X size={16} /></button>
+    </div>
+  )
+}
+
+// Sync Status Indicator
+function SyncStatusBadge({ isOnline, lastSync, isSyncing }: { isOnline: boolean; lastSync: Date | null; isSyncing: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+      isSyncing ? 'bg-blue-100 text-blue-600' : isOnline ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+    }`}>
+      {isSyncing ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : isOnline ? (
+        <Cloud size={14} />
+      ) : (
+        <CloudOff size={14} />
+      )}
+      <span>{isSyncing ? 'Syncing...' : isOnline ? 'Online' : 'Offline'}</span>
+      {lastSync && !isSyncing && (
+        <span className="text-current opacity-70">
+          {lastSync.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Loading Spinner Component
+function LoadingSpinner({ size = 24, text }: { size?: number; text?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-8">
+      <Loader2 size={size} className="text-teal-500 animate-spin" />
+      {text && <p className="text-slate-500 text-sm">{text}</p>}
     </div>
   )
 }
@@ -81,6 +126,94 @@ function StatusBadge({ status }: { status: Booking['status'] }) {
   return <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>{getStatusLabel(status)}</span>
 }
 
+// API Helper Functions
+async function fetchBookingsFromApi(): Promise<Booking[]> {
+  try {
+    const response = await fetch('/api/bookings', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store'
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result: BookingApiResponse = await response.json()
+
+    if (result.success && result.data) {
+      return Array.isArray(result.data) ? result.data : [result.data]
+    }
+    return []
+  } catch (error) {
+    console.error('Failed to fetch bookings from API:', error)
+    return []
+  }
+}
+
+async function updateBookingStatusApi(id: string, status: Booking['status']): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result: ApiResponse<Booking> = await response.json()
+    return result.success
+  } catch (error) {
+    console.error('Failed to update booking status:', error)
+    return false
+  }
+}
+
+async function deleteBookingApi(id: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/bookings/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result: ApiResponse<null> = await response.json()
+    return result.success
+  } catch (error) {
+    console.error('Failed to delete booking:', error)
+    return false
+  }
+}
+
+async function exportAllBookingsApi(): Promise<Booking[]> {
+  try {
+    const response = await fetch('/api/bookings?export=all', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store'
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result: BookingApiResponse = await response.json()
+
+    if (result.success && result.data) {
+      return Array.isArray(result.data) ? result.data : [result.data]
+    }
+    return []
+  } catch (error) {
+    console.error('Failed to export bookings from API:', error)
+    return []
+  }
+}
+
 // ========== MAIN DASHBOARD ==========
 
 export default function DashboardPage() {
@@ -94,28 +227,68 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [stats, setStats] = useState<DashboardStats>(emptyStats)
 
-  useEffect(() => {
-    const stored = loadBookingsFromStorage()
-    const data = stored.length > 0 ? stored : emptyBookings
-    setBookings(data)
+  // New state for API integration
+  const [isOnline, setIsOnline] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [lastSync, setLastSync] = useState<Date | null>(null)
+  const isApiAvailable = useRef(true)
 
-    if (data.length > 0) {
-      const uniquePatients = new Set(data.map(b => b.nama))
+  // Initialize data on mount
+  useEffect(() => {
+    const initializeData = async () => {
+      setIsLoading(true)
+      try {
+        // Try to fetch from API first
+        const apiBookings = await fetchBookingsFromApi()
+
+        if (apiBookings.length > 0) {
+          setBookings(apiBookings)
+          saveBookingsToStorage(apiBookings)
+          setLastSync(new Date())
+          setIsOnline(true)
+          isApiAvailable.current = true
+        } else {
+          // Fallback to localStorage
+          const stored = loadBookingsFromStorage()
+          const data = stored.length > 0 ? stored : emptyBookings
+          setBookings(data)
+          isApiAvailable.current = false
+          setIsOnline(false)
+        }
+      } catch {
+        // Fallback to localStorage on error
+        const stored = loadBookingsFromStorage()
+        const data = stored.length > 0 ? stored : emptyBookings
+        setBookings(data)
+        isApiAvailable.current = false
+        setIsOnline(false)
+      }
+      setIsLoading(false)
+    }
+
+    initializeData()
+  }, [])
+
+  // Calculate stats whenever bookings change
+  useEffect(() => {
+    if (bookings.length > 0) {
+      const uniquePatients = new Set(bookings.map(b => b.nama))
       const monthlyTrends: { [key: string]: number } = {}
       const serviceCounts: { [key: string]: number } = {}
 
-      data.forEach(b => {
+      bookings.forEach(b => {
         const month = new Date(b.tanggal).toLocaleDateString('id-ID', { month: 'short' })
         monthlyTrends[month] = (monthlyTrends[month] || 0) + 1
         serviceCounts[b.layanan] = (serviceCounts[b.layanan] || 0) + 1
       })
 
       setStats({
-        totalBooking: data.length,
-        bookingPending: data.filter(b => b.status === 'pending').length,
-        bookingConfirmed: data.filter(b => b.status === 'confirmed').length,
-        bookingCompleted: data.filter(b => b.status === 'completed').length,
-        bookingCancelled: data.filter(b => b.status === 'cancelled').length,
+        totalBooking: bookings.length,
+        bookingPending: bookings.filter(b => b.status === 'pending').length,
+        bookingConfirmed: bookings.filter(b => b.status === 'confirmed').length,
+        bookingCompleted: bookings.filter(b => b.status === 'completed').length,
+        bookingCancelled: bookings.filter(b => b.status === 'cancelled').length,
         totalPasien: uniquePatients.size,
         pertumbuhan: 12,
         bookingPerBulan: Object.entries(monthlyTrends).map(([bulan, jumlah]) => ({ bulan, jumlah })),
@@ -123,7 +296,56 @@ export default function DashboardPage() {
         dokterPopuler: []
       })
     }
+  }, [bookings])
+
+  // Sync from database
+  const handleSyncFromDatabase = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      const apiBookings = await fetchBookingsFromApi()
+
+      if (apiBookings.length > 0 || isApiAvailable.current) {
+        setBookings(apiBookings)
+        saveBookingsToStorage(apiBookings)
+        setLastSync(new Date())
+        setIsOnline(true)
+        isApiAvailable.current = true
+        showToast(`Berhasil sinkron! ${apiBookings.length} booking dimuat dari database.`, 'success')
+      } else {
+        showToast('Database tidak tersedia. Menggunakan data lokal.', 'error')
+        setIsOnline(false)
+      }
+    } catch {
+      showToast('Gagal sinkron dari database. Menggunakan data lokal.', 'error')
+      setIsOnline(false)
+    }
+    setIsSyncing(false)
   }, [])
+
+  // Export all bookings from database
+  const handleExportAllFromDb = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const allBookings = await exportAllBookingsApi()
+
+      if (allBookings.length > 0) {
+        const csv = generateBookingCSV(allBookings)
+        downloadCSV(csv, `all-bookings-${new Date().toISOString().split('T')[0]}.csv`)
+        showToast(`${allBookings.length} booking berhasil diexport dari database!`, 'success')
+      } else {
+        // Fallback to local data
+        const csv = generateBookingCSV(bookings)
+        downloadCSV(csv, `booking-report-${new Date().toISOString().split('T')[0]}.csv`)
+        showToast('Database kosong. Export dari data lokal.', 'success')
+      }
+    } catch {
+      // Fallback to local data
+      const csv = generateBookingCSV(bookings)
+      downloadCSV(csv, `booking-report-${new Date().toISOString().split('T')[0]}.csv`)
+      showToast('Gagal export dari DB. Export dari data lokal.', 'success')
+    }
+    setIsLoading(false)
+  }, [bookings])
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -145,12 +367,30 @@ export default function DashboardPage() {
     showToast('PDF berhasil diunduh!', 'success')
   }
 
-  const handleDeleteBooking = (id: string) => {
+  const handleDeleteBooking = async (id: string) => {
     if (confirm('Hapus booking ini?')) {
-      const updated = bookings.filter(b => b.id !== id)
-      setBookings(updated)
-      saveBookingsToStorage(updated)
-      showToast('Booking dihapus', 'success')
+      // Try API first, then fallback to localStorage
+      if (isApiAvailable.current) {
+        const success = await deleteBookingApi(id)
+        if (success) {
+          const updated = bookings.filter(b => b.id !== id)
+          setBookings(updated)
+          saveBookingsToStorage(updated)
+          showToast('Booking dihapus dari database', 'success')
+        } else {
+          // Fallback to localStorage
+          const updated = bookings.filter(b => b.id !== id)
+          setBookings(updated)
+          saveBookingsToStorage(updated)
+          showToast('Booking dihapus (offline mode)', 'success')
+        }
+      } else {
+        // Offline mode - only update localStorage
+        const updated = bookings.filter(b => b.id !== id)
+        setBookings(updated)
+        saveBookingsToStorage(updated)
+        showToast('Booking dihapus (offline mode)', 'success')
+      }
     }
   }
 
@@ -163,11 +403,29 @@ export default function DashboardPage() {
     }
   }
 
-  const handleUpdateStatus = (id: string, status: Booking['status']) => {
-    const updated = bookings.map(b => b.id === id ? { ...b, status } : b)
-    setBookings(updated)
-    saveBookingsToStorage(updated)
-    showToast(`Status: ${getStatusLabel(status)}`, 'success')
+  const handleUpdateStatus = async (id: string, status: Booking['status']) => {
+    // Try API first, then fallback to localStorage
+    if (isApiAvailable.current) {
+      const success = await updateBookingStatusApi(id, status)
+      if (success) {
+        const updated = bookings.map(b => b.id === id ? { ...b, status } : b)
+        setBookings(updated)
+        saveBookingsToStorage(updated)
+        showToast(`Status: ${getStatusLabel(status)}`, 'success')
+      } else {
+        // Fallback to localStorage
+        const updated = bookings.map(b => b.id === id ? { ...b, status } : b)
+        setBookings(updated)
+        saveBookingsToStorage(updated)
+        showToast(`Status: ${getStatusLabel(status)} (offline mode)`, 'success')
+      }
+    } else {
+      // Offline mode - only update localStorage
+      const updated = bookings.map(b => b.id === id ? { ...b, status } : b)
+      setBookings(updated)
+      saveBookingsToStorage(updated)
+      showToast(`Status: ${getStatusLabel(status)} (offline mode)`, 'success')
+    }
   }
 
   const filteredBookings = bookings.filter(b =>
@@ -253,8 +511,19 @@ export default function DashboardPage() {
                 <div className="font-semibold text-slate-800">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold shadow-lg">
-              A
+            <div className="flex items-center gap-3">
+              <SyncStatusBadge isOnline={isOnline} lastSync={lastSync} isSyncing={isSyncing} />
+              <button
+                onClick={handleSyncFromDatabase}
+                disabled={isSyncing}
+                className="flex items-center gap-2 px-3 py-2 bg-teal-500 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Sync</span>
+              </button>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold shadow-lg">
+                A
+              </div>
             </div>
           </div>
         </header>
@@ -317,7 +586,9 @@ export default function DashboardPage() {
                   <h3 className="font-semibold text-slate-800">📋 Booking Terbaru</h3>
                   <button onClick={() => setActiveTab('bookings')} className="text-sm text-teal-600 hover:text-teal-700">Lihat Semua →</button>
                 </div>
-                {hasData ? (
+                {isLoading ? (
+                  <LoadingSpinner text="Memuat data booking..." />
+                ) : hasData ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead><tr className="text-left bg-slate-50">
@@ -328,27 +599,37 @@ export default function DashboardPage() {
                         <th className="p-4 text-xs font-semibold text-slate-500">Aksi</th>
                       </tr></thead>
                       <tbody>
-                        {bookings.slice(0, 5).map((booking) => (
-                          <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="p-4">
-                              <div className="font-medium text-slate-800">{booking.nama}</div>
-                              <div className="text-xs text-slate-400">{booking.dokter}</div>
-                            </td>
-                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
-                            <td className="p-4 text-sm text-slate-500 hidden sm:table-cell">{booking.tanggal}</td>
-                            <td className="p-4"><StatusBadge status={booking.status} /></td>
-                            <td className="p-4">
-                              <div className="flex gap-2">
-                                <button onClick={() => handleUpdateStatus(booking.id, booking.status === 'pending' ? 'confirmed' : 'completed')} className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-500 hover:text-emerald-600" title="Update">
-                                  <Check size={16} />
-                                </button>
-                                <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600" title="Hapus">
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {bookings.slice(0, 5).map((booking) => {
+                          // Status progression: pending → confirmed → completed
+                          const nextStatus = booking.status === 'pending' ? 'confirmed' : booking.status === 'confirmed' ? 'completed' : null
+                          return (
+                            <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                              <td className="p-4">
+                                <div className="font-medium text-slate-800">{booking.nama}</div>
+                                <div className="text-xs text-slate-400">{booking.dokter}</div>
+                              </td>
+                              <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
+                              <td className="p-4 text-sm text-slate-500 hidden sm:table-cell">{booking.tanggal}</td>
+                              <td className="p-4"><StatusBadge status={booking.status} /></td>
+                              <td className="p-4">
+                                <div className="flex gap-2">
+                                  {nextStatus && (
+                                    <button
+                                      onClick={() => handleUpdateStatus(booking.id, nextStatus)}
+                                      className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-600"
+                                      title={`Ubah ke ${getStatusLabel(nextStatus)}`}
+                                    >
+                                      <Check size={16} />
+                                    </button>
+                                  )}
+                                  <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600" title="Hapus">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -366,6 +647,14 @@ export default function DashboardPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <h2 className="text-lg font-bold text-slate-800">📅 Semua Booking</h2>
                   <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleExportAllFromDb}
+                      disabled={isLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-all hover:scale-105 disabled:opacity-50"
+                    >
+                      {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                      Export All
+                    </button>
                     <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-medium hover:bg-emerald-600 transition-all hover:scale-105">
                       <FileSpreadsheet size={16} /> Export CSV
                     </button>
@@ -394,7 +683,9 @@ export default function DashboardPage() {
                   </select>
                 </div>
 
-                {hasData ? (
+                {isLoading ? (
+                  <LoadingSpinner text="Memuat data booking..." />
+                ) : hasData ? (
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full">
                       <thead><tr className="bg-slate-50 text-left">
@@ -405,28 +696,45 @@ export default function DashboardPage() {
                         <th className="p-4 text-xs font-semibold text-slate-500">Aksi</th>
                       </tr></thead>
                       <tbody>
-                        {filteredBookings.map((booking) => (
-                          <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50">
-                            <td className="p-4">
-                              <div className="font-medium text-slate-800">{booking.nama}</div>
-                              <div className="text-xs text-slate-400">{booking.whatsapp}</div>
-                            </td>
-                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
-                            <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.tanggal} {booking.waktu}</td>
-                            <td className="p-4"><StatusBadge status={booking.status} /></td>
-                            <td className="p-4">
-                              <div className="flex gap-2">
-                                <select value={booking.status} onChange={(e) => handleUpdateStatus(booking.id, e.target.value as Booking['status'])} className="text-xs border rounded px-2 py-1">
-                                  <option value="pending">Menunggu</option>
-                                  <option value="confirmed">Konfirmasi</option>
-                                  <option value="completed">Selesai</option>
-                                  <option value="cancelled">Batal</option>
-                                </select>
-                                <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {filteredBookings.map((booking) => {
+                          // Status progression: pending → confirmed → completed
+                          const nextStatus = booking.status === 'pending' ? 'confirmed' : booking.status === 'confirmed' ? 'completed' : null
+                          return (
+                            <tr key={booking.id} className="border-t border-slate-100 hover:bg-slate-50">
+                              <td className="p-4">
+                                <div className="font-medium text-slate-800">{booking.nama}</div>
+                                <div className="text-xs text-slate-400">{booking.whatsapp}</div>
+                              </td>
+                              <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.layanan}</td>
+                              <td className="p-4 text-sm text-slate-600 hidden sm:table-cell">{booking.tanggal} {booking.waktu}</td>
+                              <td className="p-4"><StatusBadge status={booking.status} /></td>
+                              <td className="p-4">
+                                <div className="flex gap-2">
+                                  {nextStatus && (
+                                    <button
+                                      onClick={() => handleUpdateStatus(booking.id, nextStatus)}
+                                      className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-600 transition-all"
+                                      title={`Ubah ke ${getStatusLabel(nextStatus)}`}
+                                    >
+                                      <ChevronRight size={16} />
+                                    </button>
+                                  )}
+                                  <select
+                                    value={booking.status}
+                                    onChange={(e) => handleUpdateStatus(booking.id, e.target.value as Booking['status'])}
+                                    className="text-xs border rounded px-2 py-1"
+                                  >
+                                    <option value="pending">Menunggu</option>
+                                    <option value="confirmed">Konfirmasi</option>
+                                    <option value="completed">Selesai</option>
+                                    <option value="cancelled">Batal</option>
+                                  </select>
+                                  <button onClick={() => handleDeleteBooking(booking.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

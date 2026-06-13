@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { WHATSAPP, CLINIC_NAME, CLINIC_ADDRESS } from '@/lib/config'
 
 const footerLinks = {
   layanan: [
@@ -80,7 +81,7 @@ export default function Footer() {
                   <Image src="/images/ig.png" alt="Instagram" width={20} height={20} className="object-contain" />
                 </a>
                 <a
-                  href="https://wa.me/6285343747010"
+                  href={`https://wa.me/${WHATSAPP.PRIMARY}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-green-500 flex items-center justify-center transition-colors overflow-hidden"
@@ -130,11 +131,11 @@ export default function Footer() {
                 <div className="space-y-2">
                   <p className="text-slate-400 text-sm">
                     <span className="font-semibold text-white">drg. Siti Hardianti:</span><br />
-                    +62 853-4374-7010
+                    +62 {WHATSAPP.PRIMARY.slice(2, 4)}-{WHATSAPP.PRIMARY.slice(4, 8)}-{WHATSAPP.PRIMARY.slice(8)}
                   </p>
                   <p className="text-slate-400 text-sm">
                     <span className="font-semibold text-white">drg. Fajrin Wijaya:</span><br />
-                    +62 812-5671-8190
+                    +62 {WHATSAPP.SECONDARY.slice(2, 4)}-{WHATSAPP.SECONDARY.slice(4, 8)}-{WHATSAPP.SECONDARY.slice(8)}
                   </p>
                 </div>
                 <div className="text-slate-400 text-sm">
