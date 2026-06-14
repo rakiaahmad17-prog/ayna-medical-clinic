@@ -596,8 +596,20 @@ export default function DashboardPage() {
     setToast({ message, type })
   }, [])
 
-  const handleLogout = () => {
-    document.cookie = 'dashboard_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'logout' }),
+      })
+    } catch {
+      // Clear cookies even if API fails
+      document.cookie = 'ayna_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
+      document.cookie = 'ayna_csrf=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
+    }
     router.push('/dashboard/login')
   }
 
