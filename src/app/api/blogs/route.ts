@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, Blog } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 // GET - Fetch all blogs or single blog
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured. Please set up Supabase environment variables.' },
+        { status: 503 }
+      )
+    }
+
     const searchParams = request.nextUrl.searchParams
     const slug = searchParams.get('slug')
     const category = searchParams.get('category')
@@ -20,7 +29,7 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error
 
-      const uniqueCategories = [...new Set(data?.map(b => b.category) || [])]
+      const uniqueCategories = [...new Set(data?.map((b: any) => b.category) || [])]
       return NextResponse.json(uniqueCategories)
     }
 
@@ -97,6 +106,15 @@ export async function GET(request: NextRequest) {
 // POST - Create new blog
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
 
     // Validate required fields
@@ -158,6 +176,15 @@ export async function POST(request: NextRequest) {
 // PUT - Update blog
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
 
     if (!body.id) {
@@ -199,7 +226,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the blog
-    const updateData: Partial<Blog> = {
+    const updateData: any = {
       updated_at: new Date().toISOString()
     }
 
@@ -235,6 +262,15 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete blog
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
 

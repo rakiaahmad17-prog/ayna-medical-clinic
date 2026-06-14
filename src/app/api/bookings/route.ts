@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase, Booking } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 // GET - Fetch all bookings or filtered bookings
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
     const dokter = searchParams.get('dokter')
@@ -40,8 +49,8 @@ export async function GET(request: NextRequest) {
       if (error) throw error
 
       const totalBooking = allBookings?.length || 0
-      const totalPasien = new Set(allBookings?.map(b => b.nama)).size || 0
-      const bookingPending = allBookings?.filter(b => b.status === 'pending').length || 0
+      const totalPasien = new Set(allBookings?.map((b: any) => b.nama)).size || 0
+      const bookingPending = allBookings?.filter((b: any) => b.status === 'pending').length || 0
 
       return NextResponse.json({
         success: true,
@@ -86,6 +95,15 @@ export async function GET(request: NextRequest) {
 // POST - Create new booking
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
 
     // Validate required fields
@@ -154,6 +172,15 @@ export async function POST(request: NextRequest) {
 // PUT - Update booking (status or full update)
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
 
     if (!body.id) {
@@ -178,7 +205,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the booking
-    const updateData: Partial<Booking> = {
+    const updateData: any = {
       updated_at: new Date().toISOString()
     }
 
@@ -218,6 +245,15 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete a booking
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
+    if (!supabase) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
 

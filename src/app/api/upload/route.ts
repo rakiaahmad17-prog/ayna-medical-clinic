@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase()
+
     const formData = await request.formData()
     const file = formData.get('image') as File | null
 
@@ -42,32 +44,32 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('blog-images')
-      .upload(`blogs/${filename}`, buffer, {
-        contentType: file.type,
-        upsert: false
-      })
+    // Try Supabase Storage first
+    if (supabase) {
+      const { data, error } = await supabase.storage
+        .from('blog-images')
+        .upload(`blogs/${filename}`, buffer, {
+          contentType: file.type,
+          upsert: false
+        })
 
-    if (error) {
-      console.error('Supabase upload error:', error)
-      // Fallback to local storage if Supabase fails
-      return uploadLocally(file, filename, buffer)
+      if (!error && data) {
+        const { data: urlData } = supabase.storage
+          .from('blog-images')
+          .getPublicUrl(`blogs/${filename}`)
+
+        return NextResponse.json({
+          success: true,
+          url: urlData.publicUrl,
+          filename: filename,
+          size: file.size,
+          type: file.type
+        })
+      }
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('blog-images')
-      .getPublicUrl(`blogs/${filename}`)
-
-    return NextResponse.json({
-      success: true,
-      url: urlData.publicUrl,
-      filename: filename,
-      size: file.size,
-      type: file.type
-    })
+    // Fallback to local storage if Supabase fails or not configured
+    return uploadLocally(file, filename, buffer)
   } catch (error) {
     console.error('Upload error:', error)
     return NextResponse.json(
