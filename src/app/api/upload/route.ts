@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { error: 'Supabase not configured' },
+        { status: 503 }
+      )
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     const formData = await request.formData()
     const file = formData.get('image') as File | null
@@ -44,69 +54,36 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // Try Supabase Storage first
-    if (supabase) {
-      const { data, error } = await supabase.storage
-        .from('blog-images')
-        .upload(`blogs/${filename}`, buffer, {
-          contentType: file.type,
-          upsert: false
-        })
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('blog-images')
+      .upload(`blogs/${filename}`, buffer, {
+        contentType: file.type,
+        upsert: false
+      })
 
-      if (!error && data) {
-        const { data: urlData } = supabase.storage
-          .from('blog-images')
-          .getPublicUrl(`blogs/${filename}`)
-
-        return NextResponse.json({
-          success: true,
-          url: urlData.publicUrl,
-          filename: filename,
-          size: file.size,
-          type: file.type
-        })
-      }
+    if (error) {
+      console.error('Supabase upload error:', error)
+      return NextResponse.json(
+        { error: `Upload failed: ${error.message}` },
+        { status: 500 }
+      )
     }
 
-    // Fallback to local storage if Supabase fails or not configured
-    return uploadLocally(file, filename, buffer)
-  } catch (error) {
-    console.error('Upload error:', error)
-    return NextResponse.json(
-      { error: 'Failed to upload image' },
-      { status: 500 }
-    )
-  }
-}
-
-// Fallback local upload function
-async function uploadLocally(file: File, filename: string, buffer: Buffer) {
-  try {
-    const { writeFile, mkdir } = await import('fs/promises')
-    const { existsSync } = await import('fs')
-    const path = await import('path')
-
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'blogs')
-
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-
-    const filepath = path.join(uploadDir, filename)
-    await writeFile(filepath, buffer)
-
-    const publicUrl = `/uploads/blogs/${filename}`
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('blog-images')
+      .getPublicUrl(`blogs/${filename}`)
 
     return NextResponse.json({
       success: true,
-      url: publicUrl,
+      url: urlData.publicUrl,
       filename: filename,
       size: file.size,
-      type: file.type,
-      storage: 'local'
+      type: file.type
     })
   } catch (error) {
-    console.error('Local upload error:', error)
+    console.error('Upload error:', error)
     return NextResponse.json(
       { error: 'Failed to upload image' },
       { status: 500 }

@@ -480,22 +480,14 @@ export default function DashboardPage() {
         // Try to fetch from API first
         const apiBookings = await fetchBookingsFromApi()
 
-        if (apiBookings.length > 0) {
-          setBookings(apiBookings)
-          saveBookingsToStorage(apiBookings)
-          setLastSync(new Date())
-          setIsOnline(true)
-          isApiAvailable.current = true
-        } else {
-          // Fallback to localStorage
-          const stored = loadBookingsFromStorage()
-          const data = stored.length > 0 ? stored : emptyBookings
-          setBookings(data)
-          isApiAvailable.current = false
-          setIsOnline(false)
-        }
+        // API call succeeded - set online regardless of data count
+        setBookings(apiBookings)
+        saveBookingsToStorage(apiBookings)
+        setLastSync(new Date())
+        setIsOnline(true)
+        isApiAvailable.current = true
       } catch {
-        // Fallback to localStorage on error
+        // Fallback to localStorage only on error
         const stored = loadBookingsFromStorage()
         const data = stored.length > 0 ? stored : emptyBookings
         setBookings(data)
@@ -509,14 +501,9 @@ export default function DashboardPage() {
     const fetchBlogs = async () => {
       try {
         const apiBlogs = await fetchBlogsFromApi()
-        if (apiBlogs.length > 0) {
-          setBlogs(apiBlogs)
-          saveBlogsToStorage(apiBlogs)
-        } else {
-          // Fallback to localStorage
-          const stored = loadBlogsFromStorage()
-          setBlogs(stored)
-        }
+        // API call succeeded - set online regardless of data count
+        setBlogs(apiBlogs)
+        saveBlogsToStorage(apiBlogs)
       } catch {
         // Fallback to localStorage on error
         const stored = loadBlogsFromStorage()
