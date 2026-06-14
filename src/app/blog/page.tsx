@@ -1,18 +1,76 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, User, ArrowRight, Search } from 'lucide-react'
-import { blogPosts } from '@/data/blog'
+import blogSeedData from '@/lib/db/blogs-seed.json'
 import { ScrollReveal } from '@/lib/scroll-reveal'
+
+interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  content: string
+  coverImage?: string
+  featuredImage?: string
+  category: string
+  author: string
+  publishedAt?: string
+  createdAt?: string
+  readTime?: string
+  featured?: boolean
+  published?: boolean
+}
 
 const categories = ['Semua', 'Perawatan', 'Anak', 'Edukasi', 'Estetika']
 
 export default function BlogPage() {
+  const [blogs, setBlogs] = useState<BlogPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('Semua')
-  const [featuredPost, ...otherPosts] = blogPosts
+
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await fetch('/api/blogs')
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch blogs')
+        }
+
+        const data = await response.json()
+        setBlogs(data)
+      } catch (err) {
+        console.error('Error fetching blogs:', err)
+        setError('Gagal memuat artikel. Menggunakan data lokal.')
+        // Fallback to static data
+        setBlogs(blogSeedData as BlogPost[])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBlogs()
+  }, [])
+
+  const featuredPost = blogs.find(post => post.featured) || blogs[0]
+  const otherPosts = blogs.filter(post => post.id !== featuredPost?.id)
+
+  // Helper to get cover image (handles both API and static data)
+  const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || '/images/blog/default.jpg'
+
+  // Helper to format date
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
 
   const filteredPosts = otherPosts.filter(post => {
     const matchesSearch = searchQuery === '' ||
@@ -21,6 +79,19 @@ export default function BlogPage() {
     const matchesCategory = activeCategory === 'Semua' || post.category === activeCategory
     return matchesSearch && matchesCategory
   })
+
+  if (loading) {
+    return (
+      <section className="min-h-screen pt-32 pb-20">
+        <div className="section-container text-center">
+          <div className="animate-pulse">
+            <div className="h-8 w-64 bg-slate-200 rounded mx-auto mb-4" />
+            <div className="h-4 w-96 bg-slate-200 rounded mx-auto" />
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <>
@@ -45,54 +116,56 @@ export default function BlogPage() {
       </section>
 
       {/* Featured Post */}
-      <section className="section-padding -mt-8">
-        <div className="section-container">
-          <ScrollReveal>
-            <Link href={`/blog/${featuredPost.slug}`} className="group block card overflow-hidden p-0">
-              <div className="grid md:grid-cols-2 gap-0">
-                <div className="relative aspect-[4/3] md:aspect-auto">
-                  <Image
-                    src={featuredPost.coverImage}
-                    alt={featuredPost.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    priority
-                  />
-                </div>
-                <div className="p-8 flex flex-col justify-center">
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-warm-100 text-warm-600 text-xs font-medium mb-4 w-fit">
-                    ⭐ Featured
-                  </span>
-                  <h2 className="font-display text-2xl md:text-3xl font-bold text-slate-800 mb-4 group-hover:text-primary-600 transition-colors">
-                    {featuredPost.title}
-                  </h2>
-                  <p className="text-slate-500 leading-relaxed mb-6">
-                    {featuredPost.excerpt}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-slate-400 mb-6">
-                    <div className="flex items-center gap-1">
-                      <User size={12} />
-                      <span>{featuredPost.author}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar size={12} />
-                      <span>{featuredPost.publishedAt}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock size={12} />
-                      <span>{featuredPost.readTime}</span>
-                    </div>
+      {featuredPost && (
+        <section className="section-padding -mt-8">
+          <div className="section-container">
+            <ScrollReveal>
+              <Link href={`/blog/${featuredPost.slug}`} className="group block card overflow-hidden p-0">
+                <div className="grid md:grid-cols-2 gap-0">
+                  <div className="relative aspect-[4/3] md:aspect-auto">
+                    <Image
+                      src={getCoverImage(featuredPost)}
+                      alt={featuredPost.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      priority
+                    />
                   </div>
-                  <span className="btn-primary w-fit">
-                    Baca Selengkapnya
-                    <ArrowRight size={16} />
-                  </span>
+                  <div className="p-8 flex flex-col justify-center">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-warm-100 text-warm-600 text-xs font-medium mb-4 w-fit">
+                      ⭐ Featured
+                    </span>
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-slate-800 mb-4 group-hover:text-primary-600 transition-colors">
+                      {featuredPost.title}
+                    </h2>
+                    <p className="text-slate-500 leading-relaxed mb-6">
+                      {featuredPost.excerpt}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-slate-400 mb-6">
+                      <div className="flex items-center gap-1">
+                        <User size={12} />
+                        <span>{featuredPost.author}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        <span>{formatDate(featuredPost.createdAt || featuredPost.publishedAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} />
+                        <span>{featuredPost.readTime || '5 min'}</span>
+                      </div>
+                    </div>
+                    <span className="btn-primary w-fit">
+                      Baca Selengkapnya
+                      <ArrowRight size={16} />
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          </ScrollReveal>
-        </div>
-      </section>
+              </Link>
+            </ScrollReveal>
+          </div>
+        </section>
+      )}
 
       {/* Search & Filter */}
       <section className="pb-8">
@@ -130,6 +203,12 @@ export default function BlogPage() {
       {/* Blog Grid */}
       <section className="section-padding pt-0">
         <div className="section-container">
+          {error && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+              {error}
+            </div>
+          )}
+
           {filteredPosts.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-slate-500 mb-4">Tidak ada artikel untuk "{searchQuery}"</p>
@@ -144,7 +223,7 @@ export default function BlogPage() {
                   <Link href={`/blog/${post.slug}`} className="card group overflow-hidden p-0 h-full flex flex-col">
                     <div className="relative aspect-[4/3] -mx-6 -mt-6 mb-4">
                       <Image
-                        src={post.coverImage}
+                        src={getCoverImage(post)}
                         alt={post.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -163,7 +242,7 @@ export default function BlogPage() {
                       <div className="flex items-center gap-3 text-xs text-slate-400 mb-4">
                         <span>{post.author}</span>
                         <span>•</span>
-                        <span>{post.readTime}</span>
+                        <span>{post.readTime || formatDate(post.createdAt)}</span>
                       </div>
                     </div>
                   </Link>

@@ -1,30 +1,111 @@
 'use client'
 
 import { use } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, User, ArrowLeft, ArrowRight } from 'lucide-react'
-import { blogPosts } from '@/data/blog'
+import blogSeedData from '@/lib/db/blogs-seed.json'
 import { ScrollReveal } from '@/lib/scroll-reveal'
+
+interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  content: string
+  coverImage?: string
+  featuredImage?: string
+  category: string
+  author: string
+  publishedAt?: string
+  createdAt?: string
+  readTime?: string
+  featured?: boolean
+  published?: boolean
+}
+
+// Helper to get cover image
+const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || '/images/blog/default.jpg'
+
+// Helper to format date
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 
 export default function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
-  const post = blogPosts.find(p => p.slug === slug)
-  const otherPosts = blogPosts.filter(p => p.slug !== slug).slice(0, 3)
+  const [post, setPost] = useState<BlogPost | null>(null)
+  const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
 
-  if (!post) {
-    return (
-      <section className="min-h-screen pt-32 pb-20">
-        <div className="section-container text-center">
-          <h1 className="font-display text-3xl font-bold text-slate-900 mb-4">Artikel Tidak Ditemukan</h1>
-          <p className="text-slate-500 mb-8">Maaf, artikel yang Anda cari tidak ada.</p>
-          <Link href="/blog" className="btn-primary">
-            Kembali ke Blog
-          </Link>
-        </div>
-      </section>
-    )
-  }
+  useEffect(() => {
+    const fetchBlog = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        setNotFound(false)
+
+        const response = await fetch(`/api/blogs?slug=${encodeURIComponent(slug)}`)
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setNotFound(true)
+            setError('Artikel tidak ditemukan.')
+            // Fallback to static data
+            const staticPost = (blogSeedData as BlogPost[]).find(p => p.slug === slug)
+            if (staticPost) {
+              setPost(staticPost)
+              setRelatedPosts(
+                (blogSeedData as BlogPost[])
+                  .filter(p => p.slug !== slug)
+                  .slice(0, 3)
+              )
+            }
+          } else {
+            throw new Error('Failed to fetch blog')
+          }
+          return
+        }
+
+        const data = await response.json()
+        setPost(data)
+
+        // Fetch related posts (all blogs, then filter)
+        const allBlogsResponse = await fetch('/api/blogs')
+        if (allBlogsResponse.ok) {
+          const allBlogs = await allBlogsResponse.json()
+          setRelatedPosts(
+            allBlogs
+              .filter((b: BlogPost) => b.slug !== slug)
+              .slice(0, 3)
+          )
+        }
+      } catch (err) {
+        console.error('Error fetching blog:', err)
+        setError('Gagal memuat artikel. Menggunakan data lokal.')
+        // Fallback to static data
+        const staticPost = (blogSeedData as BlogPost[]).find(p => p.slug === slug)
+        if (staticPost) {
+          setPost(staticPost)
+          setRelatedPosts(
+            (blogSeedData as BlogPost[])
+              .filter(p => p.slug !== slug)
+              .slice(0, 3)
+          )
+        } else {
+          setNotFound(true)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBlog()
+  }, [slug])
 
   // Simple markdown to HTML conversion
   const renderContent = (content: string) => {
@@ -42,6 +123,36 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         if (!line.startsWith('<')) return <p key={i} className="text-slate-600 leading-relaxed mb-4">{line}</p>
         return null
       })
+  }
+
+  if (loading) {
+    return (
+      <section className="min-h-screen pt-32 pb-20">
+        <div className="section-container text-center">
+          <div className="animate-pulse">
+            <div className="h-6 w-32 bg-slate-200 rounded mx-auto mb-6" />
+            <div className="h-10 w-96 bg-slate-200 rounded mx-auto mb-4" />
+            <div className="h-4 w-64 bg-slate-200 rounded mx-auto" />
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (notFound || !post) {
+    return (
+      <section className="min-h-screen pt-32 pb-20">
+        <div className="section-container text-center">
+          <h1 className="font-display text-3xl font-bold text-slate-900 mb-4">Artikel Tidak Ditemukan</h1>
+          <p className="text-slate-500 mb-8">
+            {error || 'Maaf, artikel yang Anda cari tidak ada.'}
+          </p>
+          <Link href="/blog" className="btn-primary">
+            Kembali ke Blog
+          </Link>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -73,11 +184,11 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
               </div>
               <div className="flex items-center gap-2">
                 <Calendar size={14} />
-                <span>{new Date(post.publishedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                <span>{formatDate(post.createdAt || post.publishedAt)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock size={14} />
-                <span>{post.readTime}</span>
+                <span>{post.readTime || '5 min'}</span>
               </div>
             </div>
           </div>
@@ -89,7 +200,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         <div className="section-container">
           <div className="relative aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl max-w-4xl mx-auto">
             <Image
-              src={post.coverImage}
+              src={getCoverImage(post)}
               alt={post.title}
               fill
               className="object-cover"
@@ -109,35 +220,37 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
       </section>
 
       {/* Related Posts */}
-      <section className="section-padding bg-surface-50">
-        <div className="section-container">
-          <h2 className="font-display text-2xl font-bold text-slate-900 mb-8">Artikel Terkait</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {otherPosts.map((relatedPost) => (
-              <Link key={relatedPost.id} href={`/blog/${relatedPost.slug}`} className="card group overflow-hidden p-0">
-                <div className="relative aspect-[4/3] -mx-6 -mt-6 mb-4">
-                  <Image
-                    src={relatedPost.coverImage}
-                    alt={relatedPost.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-                <div className="p-0 px-6">
-                  <span className="text-xs text-primary-600 font-medium">{relatedPost.category}</span>
-                  <h3 className="font-display text-lg font-bold text-slate-800 mt-1 mb-2 group-hover:text-primary-600 transition-colors line-clamp-2">
-                    {relatedPost.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 line-clamp-2">{relatedPost.excerpt}</p>
-                  <span className="inline-flex items-center gap-1 text-primary-600 text-sm font-medium mt-4">
-                    Baca Selengkapnya <ArrowRight size={14} />
-                  </span>
-                </div>
-              </Link>
-            ))}
+      {relatedPosts.length > 0 && (
+        <section className="section-padding bg-surface-50">
+          <div className="section-container">
+            <h2 className="font-display text-2xl font-bold text-slate-900 mb-8">Artikel Terkait</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {relatedPosts.map((relatedPost) => (
+                <Link key={relatedPost.id} href={`/blog/${relatedPost.slug}`} className="card group overflow-hidden p-0">
+                  <div className="relative aspect-[4/3] -mx-6 -mt-6 mb-4">
+                    <Image
+                      src={getCoverImage(relatedPost)}
+                      alt={relatedPost.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-0 px-6">
+                    <span className="text-xs text-primary-600 font-medium">{relatedPost.category}</span>
+                    <h3 className="font-display text-lg font-bold text-slate-800 mt-1 mb-2 group-hover:text-primary-600 transition-colors line-clamp-2">
+                      {relatedPost.title}
+                    </h3>
+                    <p className="text-sm text-slate-500 line-clamp-2">{relatedPost.excerpt}</p>
+                    <span className="inline-flex items-center gap-1 text-primary-600 text-sm font-medium mt-4">
+                      Baca Selengkapnya <ArrowRight size={14} />
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="section-padding bg-primary-500">

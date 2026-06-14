@@ -9,7 +9,7 @@ import {
   TrendingUp, FileSpreadsheet, Printer, ChevronLeft, BarChart3,
   Search, Plus, X, Check, AlertCircle, ChevronRight,
   Trash2, RefreshCw, Inbox, ArrowUpRight, ArrowDownRight, PieChart,
-  Database, Download, Loader2, CloudOff, Cloud
+  Database, Download, Loader2, CloudOff, Cloud, FileText, Edit2, Image as ImageIcon
 } from 'lucide-react'
 import {
   DashboardStats, Booking, emptyStats, emptyBookings,
@@ -28,6 +28,111 @@ interface ApiResponse<T> {
 
 interface BookingApiResponse extends ApiResponse<Booking | Booking[]> {
   total?: number
+}
+
+// Blog Types
+interface Blog {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  content: string
+  category: 'Perawatan' | 'Anak' | 'Edukasi' | 'Estetika'
+  author: string
+  featuredImage: string
+  status: 'published' | 'draft'
+  createdAt: string
+  updatedAt: string
+}
+
+const blogCategories = ['Perawatan', 'Anak', 'Edukasi', 'Estetika'] as const
+
+// Generate slug from title
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
+// Generate unique ID
+function generateId(): string {
+  return `blog_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+// Sample blog data
+const sampleBlogs: Blog[] = [
+  {
+    id: 'blog_1',
+    title: 'Tips Perawatan Kulit Wajah',
+    slug: 'tips-perawatan-kulit-wajah',
+    excerpt: 'Pelajari cara merawat kulit wajah dengan benar untuk mendapatkan kulit yang sehat dan bercahaya.',
+    content: 'Perawatan kulit wajah yang tepat sangat penting untuk menjaga kesehatan dan kecantikan kulit Anda. Berikut beberapa tips yang dapat Anda ikuti:\n\n1. Bersihkan wajah secara teratur\n2. Gunakan pelembap yang sesuai\n3. Lindungi kulit dari sinar matahari\n4. Konsumsi makanan bergizi',
+    category: 'Perawatan',
+    author: 'Dr. Sarah Wijaya',
+    featuredImage: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=800',
+    status: 'published',
+    createdAt: '2024-01-15',
+    updatedAt: '2024-01-15'
+  },
+  {
+    id: 'blog_2',
+    title: 'Imunisasi Anak: Panduan Lengkap',
+    slug: 'imunisasi-anak-panduan-lengkap',
+    excerpt: 'Semua yang perlu orang tua ketahui tentang jadwal dan manfaat imunisasi anak.',
+    content: 'Imunisasi adalah salah satu cara terbaik untuk melindungi anak dari berbagai penyakit berbahaya. Jadwal imunisasi yang tepat sangat penting untuk memastikan anak mendapatkan perlindungan optimal.',
+    category: 'Anak',
+    author: 'Dr. Ahmad Fauzi',
+    featuredImage: 'https://images.unsplash.com/photo-1584515933487-779824d29309?w=800',
+    status: 'published',
+    createdAt: '2024-01-10',
+    updatedAt: '2024-01-10'
+  },
+  {
+    id: 'blog_3',
+    title: 'Makanan Sehat untuk Ibu Hamil',
+    slug: 'makanan-sehat-untuk-ibu-hamil',
+    excerpt: 'Rekomendasi makanan bergizi untuk menjaga kesehatan ibu dan janin selama kehamilan.',
+    content: 'Nutrisi yang tepat selama kehamilan sangat penting untuk pertumbuhan dan perkembangan janin. Berikut rekomendasi makanan yang baik untuk ibu hamil.',
+    category: 'Edukasi',
+    author: 'Dr. Lisa Permata',
+    featuredImage: 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=800',
+    status: 'draft',
+    createdAt: '2024-01-08',
+    updatedAt: '2024-01-12'
+  },
+  {
+    id: 'blog_4',
+    title: 'Perawatan Rambut dengan Treatment Estetika',
+    slug: 'perawatan-rambut-treatment-estetika',
+    excerpt: 'Treatment estetika modern untuk rambut sehat dan berkilau.',
+    content: 'Treatment estetika untuk rambut semakin populer dengan berbagai pilihan yang tersedia. Dari hair spa hingga keratin treatment, berikut informasinya.',
+    category: 'Estetika',
+    author: 'Dr. Sarah Wijaya',
+    featuredImage: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800',
+    status: 'published',
+    createdAt: '2024-01-05',
+    updatedAt: '2024-01-05'
+  }
+]
+
+// Blog storage functions
+function loadBlogsFromStorage(): Blog[] {
+  if (typeof window === 'undefined') return sampleBlogs
+  const stored = localStorage.getItem('ayna_blogs')
+  if (stored) {
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return sampleBlogs
+    }
+  }
+  return sampleBlogs
+}
+
+function saveBlogsToStorage(blogs: Blog[]): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('ayna_blogs', JSON.stringify(blogs))
 }
 
 // Toast Notification
@@ -214,6 +319,103 @@ async function exportAllBookingsApi(): Promise<Booking[]> {
   }
 }
 
+// ========== BLOG API FUNCTIONS ==========
+
+async function fetchBlogsFromApi(): Promise<Blog[]> {
+  try {
+    const response = await fetch('/api/blogs', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store'
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    // API returns array directly, map to dashboard Blog format
+    return data.map((blog: any) => ({
+      ...blog,
+      status: blog.published ? 'published' : 'draft'
+    }))
+  } catch (error) {
+    console.error('Failed to fetch blogs from API:', error)
+    return []
+  }
+}
+
+async function createBlogApi(blogData: Omit<Blog, 'id' | 'createdAt' | 'updatedAt'>): Promise<Blog | null> {
+  try {
+    const response = await fetch('/api/blogs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...blogData,
+        published: blogData.status === 'published'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return {
+      ...data,
+      status: data.published ? 'published' : 'draft'
+    }
+  } catch (error) {
+    console.error('Failed to create blog:', error)
+    return null
+  }
+}
+
+async function updateBlogApi(id: string, blogData: Partial<Blog>): Promise<Blog | null> {
+  try {
+    const response = await fetch('/api/blogs', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        ...blogData,
+        published: blogData.status === 'published'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return {
+      ...data,
+      status: data.published ? 'published' : 'draft'
+    }
+  } catch (error) {
+    console.error('Failed to update blog:', error)
+    return null
+  }
+}
+
+async function deleteBlogApi(id: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/blogs?id=${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return true
+  } catch (error) {
+    console.error('Failed to delete blog:', error)
+    return false
+  }
+}
+
 // ========== MAIN DASHBOARD ==========
 
 export default function DashboardPage() {
@@ -233,6 +435,17 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [lastSync, setLastSync] = useState<Date | null>(null)
   const isApiAvailable = useRef(true)
+
+  // Blog state
+  const [blogs, setBlogs] = useState<Blog[]>([])
+  const [blogSearchTerm, setBlogSearchTerm] = useState('')
+  const [blogCategoryFilter, setBlogCategoryFilter] = useState<string>('all')
+  const [blogPage, setBlogPage] = useState(1)
+  const [blogModalOpen, setBlogModalOpen] = useState(false)
+  const [blogDeleteModalOpen, setBlogDeleteModalOpen] = useState(false)
+  const [editingBlog, setEditingBlog] = useState<Blog | null>(null)
+  const [deletingBlog, setDeletingBlog] = useState<Blog | null>(null)
+  const blogsPerPage = 5
 
   // Initialize data on mount
   useEffect(() => {
@@ -267,7 +480,27 @@ export default function DashboardPage() {
       setIsLoading(false)
     }
 
+    // Initialize blogs
+    const fetchBlogs = async () => {
+      try {
+        const apiBlogs = await fetchBlogsFromApi()
+        if (apiBlogs.length > 0) {
+          setBlogs(apiBlogs)
+          saveBlogsToStorage(apiBlogs)
+        } else {
+          // Fallback to localStorage
+          const stored = loadBlogsFromStorage()
+          setBlogs(stored)
+        }
+      } catch {
+        // Fallback to localStorage on error
+        const stored = loadBlogsFromStorage()
+        setBlogs(stored)
+      }
+    }
+
     initializeData()
+    fetchBlogs()
   }, [])
 
   // Calculate stats whenever bookings change
@@ -433,6 +666,21 @@ export default function DashboardPage() {
     (statusFilter === 'all' || b.status === statusFilter)
   )
 
+  // Filter blogs
+  const filteredBlogs = blogs
+    .filter(b =>
+      (blogSearchTerm === '' || b.title.toLowerCase().includes(blogSearchTerm.toLowerCase()) || b.excerpt.toLowerCase().includes(blogSearchTerm.toLowerCase())) &&
+      (blogCategoryFilter === 'all' || b.category === blogCategoryFilter)
+    )
+    .slice((blogPage - 1) * blogsPerPage, blogPage * blogsPerPage)
+
+  const totalBlogPages = Math.ceil(
+    blogs.filter(b =>
+      (blogSearchTerm === '' || b.title.toLowerCase().includes(blogSearchTerm.toLowerCase()) || b.excerpt.toLowerCase().includes(blogSearchTerm.toLowerCase())) &&
+      (blogCategoryFilter === 'all' || b.category === blogCategoryFilter)
+    ).length / blogsPerPage
+  )
+
   const hasData = bookings.length > 0
 
   return (
@@ -451,6 +699,7 @@ export default function DashboardPage() {
             { id: 'bookings', icon: Calendar, label: 'Booking' },
             { id: 'patients', icon: Users, label: 'Pasien' },
             { id: 'reports', icon: BarChart3, label: 'Statistik' },
+            { id: 'blog', icon: FileText, label: 'Blog' },
           ].map(({ id, icon: Icon, label }) => (
             <button key={id} onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === id ? 'bg-teal-500 shadow-lg' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'}`}>
               <Icon size={20} /> {sidebarOpen && <span>{label}</span>}
@@ -487,6 +736,7 @@ export default function DashboardPage() {
                 { id: 'bookings', icon: Calendar, label: 'Booking' },
                 { id: 'patients', icon: Users, label: 'Pasien' },
                 { id: 'reports', icon: BarChart3, label: 'Statistik' },
+                { id: 'blog', icon: FileText, label: 'Blog' },
               ].map(({ id, icon: Icon, label }) => (
                 <button key={id} onClick={() => { setActiveTab(id); setMobileOpen(false) }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${activeTab === id ? 'bg-teal-500 text-white' : 'text-slate-400'}`}>
                   <Icon size={20} /> <span>{label}</span>
@@ -880,8 +1130,435 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+
+          {/* Blog Tab */}
+          {activeTab === 'blog' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">📝 Manajemen Blog</h2>
+                  <p className="text-slate-500">Kelola artikel dan konten blog klinik</p>
+                </div>
+                <button
+                  onClick={() => { setEditingBlog(null); setBlogModalOpen(true) }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-all hover:scale-105 shadow-lg"
+                >
+                  <Plus size={18} /> Tambah Blog Baru
+                </button>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-5 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <FileText size={20} className="text-blue-500" />
+                    </div>
+                    <span className="text-sm text-slate-500">Total</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">{blogs.length}</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <Check size={20} className="text-emerald-500" />
+                    </div>
+                    <span className="text-sm text-slate-500">Published</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">{blogs.filter(b => b.status === 'published').length}</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                      <Clock size={20} className="text-amber-500" />
+                    </div>
+                    <span className="text-sm text-slate-500">Draft</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">{blogs.filter(b => b.status === 'draft').length}</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <TrendingUp size={20} className="text-purple-500" />
+                    </div>
+                    <span className="text-sm text-slate-500">Kategori</span>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">{new Set(blogs.map(b => b.category)).size}</div>
+                </div>
+              </div>
+
+              {/* Blog List */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                {/* Search and Filter */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari blog..."
+                      value={blogSearchTerm}
+                      onChange={(e) => { setBlogSearchTerm(e.target.value); setBlogPage(1) }}
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  <select
+                    value={blogCategoryFilter}
+                    onChange={(e) => { setBlogCategoryFilter(e.target.value); setBlogPage(1) }}
+                    className="px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none bg-white"
+                  >
+                    <option value="all">Semua Kategori</option>
+                    {blogCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Table */}
+                {blogs.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-slate-50 text-left">
+                            <th className="p-4 text-xs font-semibold text-slate-500">Judul</th>
+                            <th className="p-4 text-xs font-semibold text-slate-500 hidden sm:table-cell">Kategori</th>
+                            <th className="p-4 text-xs font-semibold text-slate-500 hidden md:table-cell">Author</th>
+                            <th className="p-4 text-xs font-semibold text-slate-500 hidden md:table-cell">Tanggal</th>
+                            <th className="p-4 text-xs font-semibold text-slate-500">Status</th>
+                            <th className="p-4 text-xs font-semibold text-slate-500">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredBlogs.map((blog) => (
+                            <tr key={blog.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  {blog.featuredImage && (
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100">
+                                      <img src={blog.featuredImage} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="font-medium text-slate-800 line-clamp-1">{blog.title}</div>
+                                    <div className="text-xs text-slate-400">{blog.slug}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4 hidden sm:table-cell">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  blog.category === 'Perawatan' ? 'bg-blue-100 text-blue-600' :
+                                  blog.category === 'Anak' ? 'bg-pink-100 text-pink-600' :
+                                  blog.category === 'Edukasi' ? 'bg-green-100 text-green-600' :
+                                  'bg-purple-100 text-purple-600'
+                                }`}>
+                                  {blog.category}
+                                </span>
+                              </td>
+                              <td className="p-4 text-sm text-slate-600 hidden md:table-cell">{blog.author}</td>
+                              <td className="p-4 text-sm text-slate-500 hidden md:table-cell">{blog.createdAt}</td>
+                              <td className="p-4">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  blog.status === 'published' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                                }`}>
+                                  {blog.status === 'published' ? 'Published' : 'Draft'}
+                                </span>
+                              </td>
+                              <td className="p-4">
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => { setEditingBlog(blog); setBlogModalOpen(true) }}
+                                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-all"
+                                    title="Edit"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeletingBlog(blog); setBlogDeleteModalOpen(true) }}
+                                    className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-all"
+                                    title="Hapus"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalBlogPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-6">
+                        <button
+                          onClick={() => setBlogPage(p => Math.max(1, p - 1))}
+                          disabled={blogPage === 1}
+                          className="px-3 py-2 rounded-lg border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalBlogPages }, (_, i) => i + 1).map(page => (
+                            <button
+                              key={page}
+                              onClick={() => setBlogPage(page)}
+                              className={`w-10 h-10 rounded-lg text-sm font-medium transition-all ${
+                                page === blogPage ? 'bg-teal-500 text-white' : 'border border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setBlogPage(p => Math.min(totalBlogPages, p + 1))}
+                          disabled={blogPage === totalBlogPages}
+                          className="px-3 py-2 rounded-lg border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-all"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <EmptyState
+                    title="Belum Ada Blog"
+                    description={blogSearchTerm || blogCategoryFilter !== 'all' ? "Tidak ada blog yang sesuai dengan pencarian." : "Mulai menulis blog pertama Anda."}
+                    icon="calendar"
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Blog Create/Edit Modal */}
+      {blogModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setBlogModalOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg font-bold text-slate-800">
+                {editingBlog ? '✏️ Edit Blog' : '➕ Tambah Blog Baru'}
+              </h3>
+              <button onClick={() => setBlogModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={20} className="text-slate-500" />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const form = e.target as HTMLFormElement
+              const formData = new FormData(form)
+
+              const blogData = {
+                title: formData.get('title') as string,
+                slug: formData.get('slug') as string || generateSlug(formData.get('title') as string),
+                excerpt: formData.get('excerpt') as string,
+                content: formData.get('content') as string,
+                category: formData.get('category') as Blog['category'],
+                author: formData.get('author') as string,
+                featuredImage: formData.get('featuredImage') as string,
+                status: formData.get('status') as 'published' | 'draft'
+              }
+
+              let result: Blog | null = null
+
+              if (editingBlog) {
+                result = await updateBlogApi(editingBlog.id, blogData)
+                if (result) {
+                  setBlogs(prev => prev.map(b => b.id === editingBlog.id ? result! : b))
+                  showToast('Blog berhasil diperbarui!', 'success')
+                } else {
+                  // Fallback to local update
+                  const updated = blogs.map(b => b.id === editingBlog.id ? { ...b, ...blogData } : b)
+                  setBlogs(updated)
+                  saveBlogsToStorage(updated)
+                  showToast('Blog berhasil diperbarui! (offline mode)', 'success')
+                }
+              } else {
+                result = await createBlogApi(blogData)
+                if (result) {
+                  setBlogs(prev => [result!, ...prev])
+                  showToast('Blog berhasil dibuat!', 'success')
+                } else {
+                  // Fallback to local create
+                  const newBlog: Blog = {
+                    ...blogData,
+                    id: generateId(),
+                    createdAt: new Date().toISOString().split('T')[0],
+                    updatedAt: new Date().toISOString().split('T')[0]
+                  }
+                  setBlogs(prev => [newBlog, ...prev])
+                  saveBlogsToStorage([newBlog, ...blogs])
+                  showToast('Blog berhasil dibuat! (offline mode)', 'success')
+                }
+              }
+
+              setBlogModalOpen(false)
+              setEditingBlog(null)
+            }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Judul *</label>
+                <input
+                  type="text"
+                  name="title"
+                  defaultValue={editingBlog?.title}
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                  placeholder="Judul artikel..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Slug</label>
+                <input
+                  type="text"
+                  name="slug"
+                  defaultValue={editingBlog?.slug}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                  placeholder="auto-generate-jika-kosong"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Excerpt *</label>
+                <textarea
+                  name="excerpt"
+                  defaultValue={editingBlog?.excerpt}
+                  required
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none resize-none"
+                  placeholder="Ringkasan singkat artikel..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Konten *</label>
+                <textarea
+                  name="content"
+                  defaultValue={editingBlog?.content}
+                  required
+                  rows={6}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none resize-none"
+                  placeholder="Konten artikel (support markdown)..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Kategori *</label>
+                  <select
+                    name="category"
+                    defaultValue={editingBlog?.category}
+                    required
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none bg-white"
+                  >
+                    <option value="">Pilih kategori...</option>
+                    {blogCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Author *</label>
+                  <input
+                    type="text"
+                    name="author"
+                    defaultValue={editingBlog?.author}
+                    required
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                    placeholder="Nama dokter/penulis..."
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Featured Image URL</label>
+                <input
+                  type="url"
+                  name="featuredImage"
+                  defaultValue={editingBlog?.featuredImage}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="published"
+                      defaultChecked={editingBlog?.status === 'published' || !editingBlog}
+                    />
+                    <span className="text-sm text-slate-600">Published</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="draft"
+                      defaultChecked={editingBlog?.status === 'draft'}
+                    />
+                    <span className="text-sm text-slate-600">Draft</span>
+                  </label>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setBlogModalOpen(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all">
+                  Batal
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-teal-500 text-white rounded-xl hover:bg-teal-600 transition-all font-medium">
+                  {editingBlog ? 'Simpan Perubahan' : 'Buat Blog'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Blog Delete Confirmation Modal */}
+      {blogDeleteModalOpen && deletingBlog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setBlogDeleteModalOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={32} className="text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">Hapus Blog?</h3>
+              <p className="text-slate-500 mb-6">
+                Anda yakin ingin menghapus blog "<strong>{deletingBlog.title}</strong>"? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setBlogDeleteModalOpen(false)}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={async () => {
+                    const success = await deleteBlogApi(deletingBlog.id)
+                    if (success) {
+                      setBlogs(prev => prev.filter(b => b.id !== deletingBlog.id))
+                      showToast('Blog berhasil dihapus!', 'success')
+                    } else {
+                      // Fallback to local delete
+                      const filtered = blogs.filter(b => b.id !== deletingBlog.id)
+                      setBlogs(filtered)
+                      saveBlogsToStorage(filtered)
+                      showToast('Blog berhasil dihapus! (offline mode)', 'success')
+                    }
+                    setBlogDeleteModalOpen(false)
+                    setDeletingBlog(null)
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all font-medium"
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>

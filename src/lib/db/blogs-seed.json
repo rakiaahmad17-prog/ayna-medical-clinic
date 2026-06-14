@@ -1,0 +1,67 @@
+[
+  {
+    "id": "blog_001",
+    "slug": "perawatan-gigi-sehat-anak",
+    "title": "Tips Perawatan Gigi Sehat untuk Anak",
+    "excerpt": "Perawatan gigi anak sangat penting untuk mencegah masalah gigi di masa depan.",
+    "content": "Perawatan gigi anak sangat penting untuk mencegah masalah gigi di masa depan.",
+    "category": "Anak",
+    "author": "drg. Siti Hardianti",
+    "featuredImage": "/images/blog/dental-care-kids.jpg",
+    "createdAt": "2026-01-15T08:00:00Z",
+    "updatedAt": "2026-01-15T08:00:00Z",
+    "published": true
+  },
+  {
+    "id": "blog_002",
+    "slug": "mengapa-scaling-penting",
+    "title": "Mengapa Scaling Gigi Penting?",
+    "excerpt": "Scaling atau pembersihan karang gigi sangat penting untuk kesehatan gigi dan gusi.",
+    "content": "Scaling atau pembersihan karang gigi sangat penting untuk kesehatan gigi dan gusi.",
+    "category": "Perawatan",
+    "author": "drg. Fajrin Wijaya",
+    "featuredImage": "/images/blog/scaling-teeth.jpg",
+    "createdAt": "2026-02-20T10:00:00Z",
+    "updatedAt": "2026-02-20T10:00:00Z",
+    "published": true
+  },
+  {
+    "id": "blog_003",
+    "slug": "behel-vs-invisalign",
+    "title": "Behel vs Invisalign: Mana yang Lebih Baik?",
+    "excerpt": "Memilih antara behel tradisional dan Invisalign? Berikut perbandingan lengkap.",
+    "content": "Memilih antara behel tradisional dan Invisalign? Berikut perbandingan lengkap.",
+    "category": "Edukasi",
+    "author": "drg. Siti Hardianti",
+    "featuredImage": "/images/blog/braces-vs-invisalign.jpg",
+    "createdAt": "2026-03-10T14:00:00Z",
+    "updatedAt": "2026-03-10T14:00:00Z",
+    "published": true
+  },
+  {
+    "id": "blog_004",
+    "slug": "veneer-gigi-senyum-sempurna",
+    "title": "Veneer Gigi: Cara Mendapatkan Senyum Sempurna",
+    "excerpt": "Veneer gigi adalah prosedur kosmetik yang populer untuk mendapatkan senyum sempurna.",
+    "content": "Veneer gigi adalah prosedur kosmetik yang populer untuk mendapatkan senyum sempurna.",
+    "category": "Estetika",
+    "author": "drg. Fajrin Wijaya",
+    "featuredImage": "/images/blog/dental-veneer.jpg",
+    "createdAt": "2026-04-05T09:00:00Z",
+    "updatedAt": "2026-04-05T09:00:00Z",
+    "published": true
+  },
+  {
+    "id": "blog_005",
+    "slug": "pencabutan-gigi-wisdom-tooth",
+    "title": "Mitos dan Fakta Seputar Pencabutan Gigi Bungsu",
+    "excerpt": "Gigi bungsu sering menimbulkan kekhawatiran. Berikut mitos dan fakta.",
+    "content": "Gigi bungsu sering menimbulkan kekhawatiran. Berikut mitos dan fakta.",
+    "category": "Edukasi",
+    "author": "drg. Siti Hardianti",
+    "featuredImage": "/images/blog/wisdom-tooth.jpg",
+    "createdAt": "2026-05-12T11:00:00Z",
+    "updatedAt": "2026-05-12T11:00:00Z",
+    "published": true
+  }
+]
