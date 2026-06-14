@@ -1,100 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getAllBookings,
-  createBooking,
-  updateBookingStatus,
-  updateBooking,
-  deleteBooking,
-  getBookingById,
-  getBookingsByStatus,
-  getBookingsByDoctor,
-  getBookingsByService,
-  getBookingsByDateRange,
-  getBookingsStats,
-  Booking
-} from '@/lib/db'
+import { supabase, Booking } from '@/lib/supabase'
 
 // GET - Fetch all bookings or filtered bookings
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-
-    // Filter by status
-    const status = searchParams.get('status') as Booking['status'] | null
-    if (status) {
-      const bookings = getBookingsByStatus(status)
-      return NextResponse.json({
-        success: true,
-        data: bookings,
-        count: bookings.length
-      })
-    }
-
-    // Filter by doctor
+    const status = searchParams.get('status')
     const dokter = searchParams.get('dokter')
-    if (dokter) {
-      const bookings = getBookingsByDoctor(dokter)
-      return NextResponse.json({
-        success: true,
-        data: bookings,
-        count: bookings.length
-      })
-    }
-
-    // Filter by service
-    const layanan = searchParams.get('layanan')
-    if (layanan) {
-      const bookings = getBookingsByService(layanan)
-      return NextResponse.json({
-        success: true,
-        data: bookings,
-        count: bookings.length
-      })
-    }
-
-    // Filter by date range
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    if (startDate && endDate) {
-      const bookings = getBookingsByDateRange(startDate, endDate)
-      return NextResponse.json({
-        success: true,
-        data: bookings,
-        count: bookings.length
-      })
-    }
+    const id = searchParams.get('id')
+    const stats = searchParams.get('stats')
 
     // Get single booking by ID
-    const id = searchParams.get('id')
     if (id) {
-      const booking = getBookingById(id)
-      if (!booking) {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error || !data) {
         return NextResponse.json(
           { success: false, error: 'Booking not found' },
           { status: 404 }
         )
       }
+
       return NextResponse.json({
         success: true,
-        data: booking
+        data: data
       })
     }
 
     // Get statistics
-    const stats = searchParams.get('stats')
     if (stats === 'true') {
+      const { data: allBookings, error } = await supabase
+        .from('bookings')
+        .select('*')
+
+      if (error) throw error
+
+      const totalBooking = allBookings?.length || 0
+      const totalPasien = new Set(allBookings?.map(b => b.nama)).size || 0
+      const bookingPending = allBookings?.filter(b => b.status === 'pending').length || 0
+
       return NextResponse.json({
         success: true,
-        data: getBookingsStats()
+        data: {
+          totalBooking,
+          totalPasien,
+          bookingPending,
+          pertumbuhan: 12,
+          bookingPerBulan: []
+        }
       })
     }
 
-    // Get all bookings
-    const bookings = getAllBookings()
+    // Build query
+    let query = supabase.from('bookings').select('*')
+
+    if (status) {
+      query = query.eq('status', status)
+    }
+    if (dokter) {
+      query = query.eq('dokter', dokter)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    if (error) throw error
+
     return NextResponse.json({
       success: true,
-      data: bookings,
-      count: bookings.length
+      data: data || [],
+      count: data?.length || 0
     })
   } catch (error) {
     console.error('Error fetching bookings:', error)
@@ -136,42 +114,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-    if (!dateRegex.test(body.tanggal)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid date format. Use YYYY-MM-DD'
-        },
-        { status: 400 }
-      )
-    }
-
     // Create the booking
-    const booking = createBooking({
-      nama: body.nama,
-      whatsapp: body.whatsapp,
-      email: body.email || '',
-      layanan: body.layanan,
-      dokter: body.dokter,
-      tanggal: body.tanggal,
-      waktu: body.waktu,
-      pesan: body.pesan || ''
-    })
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert({
+        nama: body.nama,
+        whatsapp: body.whatsapp,
+        email: body.email || null,
+        layanan: body.layanan,
+        dokter: body.dokter,
+        tanggal: body.tanggal,
+        waktu: body.waktu,
+        pesan: body.pesan || null,
+        status: 'pending'
+      })
+      .select()
+      .single()
 
-    if (!booking) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to create booking' },
-        { status: 500 }
-      )
-    }
+    if (error) throw error
 
     return NextResponse.json(
       {
         success: true,
         message: 'Booking created successfully',
-        data: booking
+        data: data,
+        bookingId: data.id
       },
       { status: 201 }
     )
@@ -197,66 +164,47 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if booking exists
-    const existingBooking = getBookingById(body.id)
-    if (!existingBooking) {
+    const { data: existing, error: checkError } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('id', body.id)
+      .single()
+
+    if (checkError || !existing) {
       return NextResponse.json(
         { success: false, error: 'Booking not found' },
         { status: 404 }
       )
     }
 
-    // If only updating status
-    if (body.status && !body.nama && !body.layanan) {
-      const validStatuses: Booking['status'][] = ['pending', 'confirmed', 'cancelled', 'completed']
-      if (!validStatuses.includes(body.status)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid status. Must be one of: pending, confirmed, cancelled, completed'
-          },
-          { status: 400 }
-        )
-      }
-
-      const updatedBooking = updateBookingStatus(body.id, body.status)
-      if (!updatedBooking) {
-        return NextResponse.json(
-          { success: false, error: 'Failed to update booking status' },
-          { status: 500 }
-        )
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Booking status updated successfully',
-        data: updatedBooking
-      })
+    // Update the booking
+    const updateData: Partial<Booking> = {
+      updated_at: new Date().toISOString()
     }
 
-    // Full update
-    const updatedBooking = updateBooking(body.id, {
-      nama: body.nama,
-      whatsapp: body.whatsapp,
-      email: body.email,
-      layanan: body.layanan,
-      dokter: body.dokter,
-      tanggal: body.tanggal,
-      waktu: body.waktu,
-      pesan: body.pesan,
-      status: body.status
-    })
+    if (body.status) updateData.status = body.status
+    if (body.nama) updateData.nama = body.nama
+    if (body.whatsapp) updateData.whatsapp = body.whatsapp
+    if (body.email !== undefined) updateData.email = body.email
+    if (body.layanan) updateData.layanan = body.layanan
+    if (body.dokter) updateData.dokter = body.dokter
+    if (body.tanggal) updateData.tanggal = body.tanggal
+    if (body.waktu) updateData.waktu = body.waktu
+    if (body.pesan !== undefined) updateData.pesan = body.pesan
 
-    if (!updatedBooking) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to update booking' },
-        { status: 500 }
-      )
-    }
+    const { data, error } = await supabase
+      .from('bookings')
+      .update(updateData)
+      .eq('id', body.id)
+      .select()
+      .single()
+
+    if (error) throw error
 
     return NextResponse.json({
       success: true,
       message: 'Booking updated successfully',
-      data: updatedBooking
+      data: data
     })
   } catch (error) {
     console.error('Error updating booking:', error)
@@ -280,22 +228,12 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Check if booking exists
-    const existingBooking = getBookingById(id)
-    if (!existingBooking) {
-      return NextResponse.json(
-        { success: false, error: 'Booking not found' },
-        { status: 404 }
-      )
-    }
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('id', id)
 
-    const deleted = deleteBooking(id)
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete booking' },
-        { status: 500 }
-      )
-    }
+    if (error) throw error
 
     return NextResponse.json({
       success: true,

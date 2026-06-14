@@ -16,23 +16,28 @@ interface BlogPost {
   content: string
   coverImage?: string
   featuredImage?: string
+  featured_image?: string
   category: string
   author: string
   publishedAt?: string
   createdAt?: string
+  created_at?: string
   readTime?: string
   featured?: boolean
   published?: boolean
 }
 
 // Helper to get cover image
-const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || '/images/blog/default.jpg'
+const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || post.featured_image || '/images/blog/default.jpg'
 
 // Helper to format date
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+// Helper to get date from various field names
+const getDate = (post: BlogPost) => post.createdAt || post.created_at || post.publishedAt || ''
 
 export default function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
@@ -184,7 +189,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
               </div>
               <div className="flex items-center gap-2">
                 <Calendar size={14} />
-                <span>{formatDate(post.createdAt || post.publishedAt)}</span>
+                <span>{formatDate(getDate(post))}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock size={14} />

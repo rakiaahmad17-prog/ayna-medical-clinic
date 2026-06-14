@@ -1,101 +1,101 @@
-/**
- * Blog API Routes
- * Handles CRUD operations for blog posts
- */
-
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getAllBlogs,
-  getPublishedBlogs,
-  getBlogById,
-  getBlogBySlug,
-  getBlogsByCategory,
-  searchBlogs,
-  createBlog,
-  updateBlog,
-  deleteBlog,
-  initializeBlogs,
-  getRelatedPosts,
-  generateSlug,
-  BlogPost,
-} from '@/lib/db-blogs'
+import { supabase, Blog } from '@/lib/supabase'
 
-// Initialize blogs on first request
-let initialized = false
-function ensureInitialized() {
-  if (!initialized) {
-    initializeBlogs()
-    initialized = true
-  }
-}
-
-// GET /api/blogs - Get all blogs
+// GET - Fetch all blogs or single blog
 export async function GET(request: NextRequest) {
-  ensureInitialized()
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const slug = searchParams.get('slug')
+    const category = searchParams.get('category')
+    const search = searchParams.get('search')
+    const id = searchParams.get('id')
+    const published = searchParams.get('published')
+    const categories = searchParams.get('categories')
 
-  const { searchParams } = new URL(request.url)
-  const id = searchParams.get('id')
-  const slug = searchParams.get('slug')
-  const category = searchParams.get('category')
-  const search = searchParams.get('search')
-  const related = searchParams.get('related')
-  const relatedId = searchParams.get('relatedId')
-  const categories = searchParams.get('categories')
+    // Get categories only
+    if (categories === 'true') {
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('category')
 
-  // Get single blog by ID
-  if (id) {
-    const blog = getBlogById(id)
-    if (!blog) {
-      return NextResponse.json({ error: 'Blog not found' }, { status: 404 })
+      if (error) throw error
+
+      const uniqueCategories = [...new Set(data?.map(b => b.category) || [])]
+      return NextResponse.json(uniqueCategories)
     }
-    return NextResponse.json(blog)
-  }
 
-  // Get single blog by slug
-  if (slug) {
-    const blog = getBlogBySlug(slug)
-    if (!blog) {
-      return NextResponse.json({ error: 'Blog not found' }, { status: 404 })
+    // Get single blog by ID
+    if (id) {
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error || !data) {
+        return NextResponse.json(
+          { error: 'Blog not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json(data)
     }
-    return NextResponse.json(blog)
-  }
 
-  // Get categories only
-  if (categories === 'true') {
-    const allCategories = [...new Set(getAllBlogs().map(b => b.category))]
-    return NextResponse.json(allCategories)
-  }
+    // Get single blog by slug
+    if (slug) {
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('*')
+        .eq('slug', slug)
+        .single()
 
-  // Get related posts
-  if (related === 'true' && relatedId) {
-    const currentBlog = getBlogById(relatedId)
-    if (currentBlog) {
-      const related = getRelatedPosts(relatedId, currentBlog.category)
-      return NextResponse.json(related)
+      if (error || !data) {
+        return NextResponse.json(
+          { error: 'Blog not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json(data)
     }
-  }
 
-  // Filter by category
-  if (category) {
-    const blogs = getBlogsByCategory(category)
-    return NextResponse.json(blogs)
-  }
+    // Build query
+    let query = supabase.from('blogs').select('*')
 
-  // Search blogs
-  if (search) {
-    const blogs = searchBlogs(search)
-    return NextResponse.json(blogs)
-  }
+    // Filter by category
+    if (category) {
+      query = query.eq('category', category)
+    }
 
-  // Get all published blogs
-  const blogs = getPublishedBlogs()
-  return NextResponse.json(blogs)
+    // Filter by published status
+    if (published === 'true') {
+      query = query.eq('published', true)
+    } else if (published === 'false') {
+      query = query.eq('published', false)
+    }
+
+    // Search
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%`)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    return NextResponse.json(data || [])
+  } catch (error) {
+    console.error('Error fetching blogs:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch blogs' },
+      { status: 500 }
+    )
+  }
 }
 
-// POST /api/blogs - Create new blog
+// POST - Create new blog
 export async function POST(request: NextRequest) {
-  ensureInitialized()
-
   try {
     const body = await request.json()
 
@@ -108,28 +108,44 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate slug if not provided
-    const slug = body.slug || generateSlug(body.title)
+    const slug = body.slug || body.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
 
     // Check for duplicate slug
-    if (getBlogBySlug(slug)) {
+    const { data: existing } = await supabase
+      .from('blogs')
+      .select('id')
+      .eq('slug', slug)
+      .single()
+
+    if (existing) {
       return NextResponse.json(
         { error: 'Slug already exists. Please use a different slug.' },
         { status: 400 }
       )
     }
 
-    const newBlog = createBlog({
-      title: body.title,
-      slug,
-      excerpt: body.excerpt || '',
-      content: body.content,
-      category: body.category,
-      author: body.author,
-      featuredImage: body.featuredImage || '/images/blog/default.jpg',
-      published: body.published ?? true,
-    })
+    // Create the blog
+    const { data, error } = await supabase
+      .from('blogs')
+      .insert({
+        title: body.title,
+        slug: slug,
+        excerpt: body.excerpt || null,
+        content: body.content,
+        category: body.category,
+        author: body.author,
+        featured_image: body.featuredImage || body.featured_image || null,
+        published: body.published ?? true
+      })
+      .select()
+      .single()
 
-    return NextResponse.json(newBlog, { status: 201 })
+    if (error) throw error
+
+    return NextResponse.json(data, { status: 201 })
   } catch (error) {
     console.error('Error creating blog:', error)
     return NextResponse.json(
@@ -139,10 +155,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/blogs - Update blog
+// PUT - Update blog
 export async function PUT(request: NextRequest) {
-  ensureInitialized()
-
   try {
     const body = await request.json()
 
@@ -154,7 +168,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if blog exists
-    const existing = getBlogById(body.id)
+    const { data: existing } = await supabase
+      .from('blogs')
+      .select('id')
+      .eq('id', body.id)
+      .single()
+
     if (!existing) {
       return NextResponse.json(
         { error: 'Blog not found' },
@@ -163,8 +182,14 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check for duplicate slug if changing
-    if (body.slug && body.slug !== existing.slug) {
-      const slugExists = getBlogBySlug(body.slug)
+    if (body.slug) {
+      const { data: slugExists } = await supabase
+        .from('blogs')
+        .select('id')
+        .eq('slug', body.slug)
+        .neq('id', body.id)
+        .single()
+
       if (slugExists) {
         return NextResponse.json(
           { error: 'Slug already exists. Please use a different slug.' },
@@ -173,16 +198,31 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const updatedBlog = updateBlog(body.id, body)
-
-    if (!updatedBlog) {
-      return NextResponse.json(
-        { error: 'Failed to update blog' },
-        { status: 500 }
-      )
+    // Update the blog
+    const updateData: Partial<Blog> = {
+      updated_at: new Date().toISOString()
     }
 
-    return NextResponse.json(updatedBlog)
+    if (body.title) updateData.title = body.title
+    if (body.slug) updateData.slug = body.slug
+    if (body.excerpt !== undefined) updateData.excerpt = body.excerpt
+    if (body.content) updateData.content = body.content
+    if (body.category) updateData.category = body.category
+    if (body.author) updateData.author = body.author
+    if (body.featuredImage !== undefined) updateData.featured_image = body.featuredImage
+    if (body.featured_image !== undefined) updateData.featured_image = body.featured_image
+    if (body.published !== undefined) updateData.published = body.published
+
+    const { data, error } = await supabase
+      .from('blogs')
+      .update(updateData)
+      .eq('id', body.id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(data)
   } catch (error) {
     console.error('Error updating blog:', error)
     return NextResponse.json(
@@ -192,28 +232,32 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/blogs - Delete blog
+// DELETE - Delete blog
 export async function DELETE(request: NextRequest) {
-  ensureInitialized()
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const id = searchParams.get('id')
 
-  const { searchParams } = new URL(request.url)
-  const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Blog ID is required' },
+        { status: 400 }
+      )
+    }
 
-  if (!id) {
+    const { error } = await supabase
+      .from('blogs')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true, message: 'Blog deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting blog:', error)
     return NextResponse.json(
-      { error: 'Blog ID is required' },
-      { status: 400 }
+      { error: 'Failed to delete blog' },
+      { status: 500 }
     )
   }
-
-  const success = deleteBlog(id)
-
-  if (!success) {
-    return NextResponse.json(
-      { error: 'Blog not found' },
-      { status: 404 }
-    )
-  }
-
-  return NextResponse.json({ success: true, message: 'Blog deleted successfully' })
 }

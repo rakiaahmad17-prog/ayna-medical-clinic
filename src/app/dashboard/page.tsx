@@ -30,7 +30,7 @@ interface BookingApiResponse extends ApiResponse<Booking | Booking[]> {
   total?: number
 }
 
-// Blog Types
+// Blog Types - Updated for Supabase
 interface Blog {
   id: string
   title: string
@@ -43,6 +43,22 @@ interface Blog {
   status: 'published' | 'draft'
   createdAt: string
   updatedAt: string
+  // Supabase fields (snake_case)
+  featured_image?: string
+  created_at?: string
+  updated_at?: string
+}
+
+// Helper to get featured image (handles both formats)
+function getFeaturedImage(blog: Blog): string {
+  return blog.featuredImage || blog.featured_image || ''
+}
+
+// Helper to format date
+function formatDate(dateStr: string | undefined): string {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 const blogCategories = ['Perawatan', 'Anak', 'Edukasi', 'Estetika'] as const
@@ -336,8 +352,17 @@ async function fetchBlogsFromApi(): Promise<Blog[]> {
     const data = await response.json()
     // API returns array directly, map to dashboard Blog format
     return data.map((blog: any) => ({
-      ...blog,
-      status: blog.published ? 'published' : 'draft'
+      id: blog.id,
+      title: blog.title,
+      slug: blog.slug,
+      excerpt: blog.excerpt || '',
+      content: blog.content,
+      category: blog.category,
+      author: blog.author,
+      featuredImage: blog.featured_image || blog.featuredImage || '',
+      status: blog.published ? 'published' : 'draft',
+      createdAt: blog.created_at || blog.createdAt || new Date().toISOString(),
+      updatedAt: blog.updated_at || blog.updatedAt || new Date().toISOString()
     }))
   } catch (error) {
     console.error('Failed to fetch blogs from API:', error)

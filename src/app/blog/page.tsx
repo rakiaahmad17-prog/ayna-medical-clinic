@@ -15,10 +15,12 @@ interface BlogPost {
   content: string
   coverImage?: string
   featuredImage?: string
+  featured_image?: string
   category: string
   author: string
   publishedAt?: string
   createdAt?: string
+  created_at?: string
   readTime?: string
   featured?: boolean
   published?: boolean
@@ -63,7 +65,7 @@ export default function BlogPage() {
   const otherPosts = blogs.filter(post => post.id !== featuredPost?.id)
 
   // Helper to get cover image (handles both API and static data)
-  const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || '/images/blog/default.jpg'
+  const getCoverImage = (post: BlogPost) => post.coverImage || post.featuredImage || post.featured_image || '/images/blog/default.jpg'
 
   // Helper to format date
   const formatDate = (dateStr?: string) => {
@@ -71,6 +73,9 @@ export default function BlogPage() {
     const date = new Date(dateStr)
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
   }
+
+  // Helper to get date from various field names
+  const getDate = (post: BlogPost) => post.createdAt || post.created_at || post.publishedAt || ''
 
   const filteredPosts = otherPosts.filter(post => {
     const matchesSearch = searchQuery === '' ||
@@ -148,7 +153,7 @@ export default function BlogPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar size={12} />
-                        <span>{formatDate(featuredPost.createdAt || featuredPost.publishedAt)}</span>
+                        <span>{formatDate(getDate(featuredPost))}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock size={12} />
@@ -242,7 +247,7 @@ export default function BlogPage() {
                       <div className="flex items-center gap-3 text-xs text-slate-400 mb-4">
                         <span>{post.author}</span>
                         <span>•</span>
-                        <span>{post.readTime || formatDate(post.createdAt)}</span>
+                        <span>{post.readTime || formatDate(getDate(post))}</span>
                       </div>
                     </div>
                   </Link>
